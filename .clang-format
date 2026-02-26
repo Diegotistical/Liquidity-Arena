@@ -1,0 +1,27 @@
+---
+BasedOnStyle: LLVM
+ColumnLimit: 100
+IndentWidth: 2
+TabWidth: 2
+UseTab: Never
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakTemplateDeclarations: Yes
+PointerAlignment: Right
+ReferenceAlignment: Left
+SpaceAfterCStyleCast: false
+SpaceBeforeParens: ControlStatements
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^"'
+    Priority: 1
+  - Regex: '^<benchmark/'
+    Priority: 3
+  - Regex: '^<gtest/'
+    Priority: 3
+  - Regex: '^<'
+    Priority: 2
+...

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liquidity Arena — Market Microstructure Visualizer</title>
+    <meta name="description"
+        content="Real-time limit order book depth, PnL tracking, and market microstructure analytics for the Liquidity Arena matching engine.">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◈</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Particle canvas for trade flash effects -->
+    <canvas id="particleCanvas"></canvas>
+
+    <header>
+        <div class="logo">
+            <span class="logo-icon">◈</span>
+            <h1>Liquidity Arena</h1>
+            <span class="version-tag">v1.0.0</span>
+        </div>
+        <div class="header-right">
+            <div class="connection-status" id="connectionStatus">
+                <span class="status-dot"></span>
+                <span class="status-text">Connecting...</span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Top Stats Bar -->
+        <section class="stats-bar">
+            <div class="stat-card" id="bidCard">
+                <span class="stat-label">Best Bid</span>
+                <span class="stat-value bid-color" id="bestBid">—</span>
+            </div>
+            <div class="stat-card highlight-card">
+                <span class="stat-label">Spread</span>
+                <span class="stat-value spread-value" id="spread">—</span>
+            </div>
+            <div class="stat-card" id="askCard">
+                <span class="stat-label">Best Ask</span>
+                <span class="stat-value ask-color" id="bestAsk">—</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">MM PnL</span>
+                <span class="stat-value" id="mmPnl">—</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Inventory</span>
+                <span class="stat-value" id="mmInventory">—</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Fills</span>
+                <span class="stat-value" id="mmFills">—</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Step</span>
+                <span class="stat-value" id="simStep">—</span>
+            </div>
+        </section>
+
+        <!-- Main Dashboard Grid -->
+        <section class="dashboard-grid">
+            <!-- LOB Depth Chart -->
+            <div class="chart-container glass-card" id="depthPanel">
+                <div class="chart-header">
+                    <h2>Order Book Depth</h2>
+                    <span class="chart-badge">LIVE</span>
+                </div>
+                <canvas id="depthChart"></canvas>
+            </div>
+
+            <!-- PnL Chart -->
+            <div class="chart-container glass-card" id="pnlPanel">
+                <div class="chart-header">
+                    <h2>Market Maker PnL</h2>
+                    <span class="chart-badge pnl-badge" id="pnlBadge">—</span>
+                </div>
+                <canvas id="pnlChart"></canvas>
+            </div>
+
+            <!-- Inventory Gauge -->
+            <div class="glass-card gauge-panel" id="inventoryPanel">
+                <div class="chart-header">
+                    <h2>Inventory Risk</h2>
+                </div>
+                <div class="gauge-container">
+                    <div class="gauge-track">
+                        <div class="gauge-fill" id="gaugeFill"></div>
+                        <div class="gauge-marker" id="gaugeMarker"></div>
+                    </div>
+                    <div class="gauge-labels">
+                        <span class="gauge-label ask-color">−100</span>
+                        <span class="gauge-label" style="color: var(--text-muted)">0</span>
+                        <span class="gauge-label bid-color">+100</span>
+                    </div>
+                    <div class="gauge-value" id="gaugeValue">0</div>
+                </div>
+                <!-- A-S Model Display -->
+                <div class="model-display">
+                    <div class="model-equation">
+                        <span class="eq-label">Reservation</span>
+                        <span class="eq-value" id="reservationPrice">—</span>
+                    </div>
+                    <div class="model-equation">
+                        <span class="eq-label">σ² estimate</span>
+                        <span class="eq-value" id="sigmaEstimate">—</span>
+                    </div>
+                    <div class="model-equation">
+                        <span class="eq-label">Optimal δ</span>
+                        <span class="eq-value" id="optimalSpread">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Spread Time-Series -->
+            <div class="chart-container glass-card" id="spreadPanel">
+                <div class="chart-header">
+                    <h2>Spread Evolution</h2>
+                </div>
+                <canvas id="spreadChart"></canvas>
+            </div>
+
+            <!-- Trade Tape -->
+            <div class="glass-card tape-panel" id="tapePanel">
+                <div class="chart-header">
+                    <h2>Trade Tape</h2>
+                    <span class="chart-badge">LAST 20</span>
+                </div>
+                <div class="tape-scroll" id="tradeTape">
+                    <div class="tape-empty">Waiting for trades...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="info-footer">
+            <div class="footer-left">
+                <span>C++20 Matching Engine</span>
+                <span class="footer-sep">•</span>
+                <span>Avellaneda-Stoikov Optimal Quoting</span>
+                <span class="footer-sep">•</span>
+                <span>Integer Tick Prices</span>
+            </div>
+            <div class="footer-right">
+                <span>r = s − q·γ·σ²·(T−t)</span>
+                <span class="footer-sep">|</span>
+                <span>δ = γ·σ²·(T−t) + (2/γ)·ln(1 + γ/κ)</span>
+            </div>
+        </footer>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
