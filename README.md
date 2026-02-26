@@ -1,6 +1,6 @@
 # 🏟️ Liquidity Arena
 
-[![CI](https://github.com/YOUR_USERNAME/Liquidity-Arena/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/Liquidity-Arena/actions)
+[![CI](https://github.com/Diegotistical/Liquidity-Arena/actions/workflows/ci.yml/badge.svg)](https://github.com/Diegotistical/Liquidity-Arena/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **A sub-microsecond C++20 matching engine with Python adversarial market-making simulation and real-time browser visualization.**
