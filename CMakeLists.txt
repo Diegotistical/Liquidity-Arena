@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(LiquidityArena VERSION 1.0.0 LANGUAGES CXX)
+project(LiquidityArena VERSION 2.0.0 LANGUAGES CXX)
 
 # ── C++20 strict ──────────────────────────────────────────────────────
 set(CMAKE_CXX_STANDARD 20)
@@ -7,9 +7,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# ── Compiler warnings (applied to our code only, not dependencies) ───
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(-Wall -Wextra -Wpedantic -O2)
+# ── Compiler warnings (applied via target, not globally) ─────────────
+# We use target_compile_options below so warnings only apply to our code,
+# not to fetched dependencies (GoogleTest, Google Benchmark).
+
+# ── Sanitizer option ─────────────────────────────────────────────────
+option(ARENA_SANITIZERS "Enable AddressSanitizer + UndefinedBehaviorSanitizer" OFF)
+if(ARENA_SANITIZERS AND NOT MSVC)
+    add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=address,undefined)
 endif()
 
 # ── Platform-specific: Winsock for networking ────────────────────────
@@ -37,6 +43,17 @@ set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 set(BENCHMARK_ENABLE_WERROR OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googlebenchmark)
 
+# ── Cross-platform warning flags ─────────────────────────────────────
+# Define a function to apply strict warnings + -Werror to our targets only.
+function(arena_set_warnings target)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(${target} PRIVATE
+            -Wall -Wextra -Wpedantic -Werror -O2)
+    endif()
+endfunction()
+
 # ── Engine library (core matching engine, no networking) ─────────────
 add_library(arena_core STATIC
     engine/src/order_book.cpp
@@ -44,7 +61,7 @@ add_library(arena_core STATIC
 )
 target_include_directories(arena_core PUBLIC engine/include)
 target_link_libraries(arena_core PUBLIC ${PLATFORM_LIBS})
-target_compile_options(arena_core PRIVATE -Werror)
+arena_set_warnings(arena_core)
 target_compile_definitions(arena_core PUBLIC
     ARENA_VERSION="${PROJECT_VERSION}"
 )
@@ -55,7 +72,7 @@ add_executable(arena_engine
     engine/src/tcp_server.cpp
 )
 target_link_libraries(arena_engine PRIVATE arena_core ${PLATFORM_LIBS})
-target_compile_options(arena_engine PRIVATE -Werror)
+arena_set_warnings(arena_engine)
 
 # ── Test executable ──────────────────────────────────────────────────
 enable_testing()
@@ -66,7 +83,7 @@ add_executable(arena_tests
     engine/tests/matching_engine_test.cpp
 )
 target_link_libraries(arena_tests PRIVATE arena_core GTest::gtest_main)
-target_compile_options(arena_tests PRIVATE -Werror)
+arena_set_warnings(arena_tests)
 include(GoogleTest)
 gtest_discover_tests(arena_tests)
 
@@ -75,4 +92,4 @@ add_executable(arena_bench
     engine/bench/latency_bench.cpp
 )
 target_link_libraries(arena_bench PRIVATE arena_core benchmark::benchmark_main)
-target_compile_options(arena_bench PRIVATE -Werror)
+arena_set_warnings(arena_bench)

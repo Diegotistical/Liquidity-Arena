@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Liquidity Arena — Market Microstructure Visualizer</title>
+    <title>Liquidity Arena — Microstructure Dashboard</title>
     <meta name="description"
-        content="Real-time limit order book depth, PnL tracking, and market microstructure analytics for the Liquidity Arena matching engine.">
+        content="Real-time limit order book depth, PnL tracking, quantitative metrics, and market microstructure analytics for the Liquidity Arena matching engine.">
     <link rel="icon"
         href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◈</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,7 +25,17 @@
         <div class="logo">
             <span class="logo-icon">◈</span>
             <h1>Liquidity Arena</h1>
-            <span class="version-tag">v1.0.0</span>
+            <span class="version-tag">v2.0.0</span>
+        </div>
+        <div class="header-center">
+            <div class="regime-indicator" id="regimeIndicator">
+                <span class="regime-dot" id="regimeDot"></span>
+                <span class="regime-label" id="regimeLabel">CALM</span>
+            </div>
+            <div class="latency-display">
+                <span class="latency-icon">⚡</span>
+                <span class="latency-value" id="engineLatency">—</span>
+            </div>
         </div>
         <div class="header-right">
             <div class="connection-status" id="connectionStatus">
@@ -63,8 +73,8 @@
                 <span class="stat-value" id="mmFills">—</span>
             </div>
             <div class="stat-card">
-                <span class="stat-label">Step</span>
-                <span class="stat-value" id="simStep">—</span>
+                <span class="stat-label">Events/sec</span>
+                <span class="stat-value" id="eventRate">—</span>
             </div>
         </section>
 
@@ -88,7 +98,7 @@
                 <canvas id="pnlChart"></canvas>
             </div>
 
-            <!-- Inventory Gauge -->
+            <!-- Inventory Gauge + A-S Model -->
             <div class="glass-card gauge-panel" id="inventoryPanel">
                 <div class="chart-header">
                     <h2>Inventory Risk</h2>
@@ -99,9 +109,9 @@
                         <div class="gauge-marker" id="gaugeMarker"></div>
                     </div>
                     <div class="gauge-labels">
-                        <span class="gauge-label ask-color">−100</span>
+                        <span class="gauge-label ask-color">−500</span>
                         <span class="gauge-label" style="color: var(--text-muted)">0</span>
-                        <span class="gauge-label bid-color">+100</span>
+                        <span class="gauge-label bid-color">+500</span>
                     </div>
                     <div class="gauge-value" id="gaugeValue">0</div>
                 </div>
@@ -130,6 +140,93 @@
                 <canvas id="spreadChart"></canvas>
             </div>
 
+            <!-- Quantitative Metrics Panel -->
+            <div class="glass-card metrics-panel" id="metricsPanel">
+                <div class="chart-header">
+                    <h2>Quantitative Metrics</h2>
+                    <span class="chart-badge metrics-badge">QUANT</span>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-item">
+                        <span class="metric-label">Sharpe Ratio</span>
+                        <span class="metric-value" id="metricSharpe">—</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Adverse Selection</span>
+                        <span class="metric-value" id="metricAdverse">—</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Fill Ratio</span>
+                        <span class="metric-value" id="metricFillRatio">—</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Inv. Variance</span>
+                        <span class="metric-value" id="metricInvVar">—</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Quote Lifetime</span>
+                        <span class="metric-value" id="metricQuoteLife">—</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Order-to-Trade</span>
+                        <span class="metric-value" id="metricOTR">—</span>
+                    </div>
+                    <div class="metric-divider"></div>
+                    <div class="metric-item metric-decomp">
+                        <span class="metric-label">Spread Capture</span>
+                        <span class="metric-value positive" id="metricSpreadCap">—</span>
+                    </div>
+                    <div class="metric-item metric-decomp">
+                        <span class="metric-label">Inventory PnL</span>
+                        <span class="metric-value" id="metricInvPnl">—</span>
+                    </div>
+                    <div class="metric-item metric-decomp">
+                        <span class="metric-label">Net Fees</span>
+                        <span class="metric-value" id="metricFees">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Agent Activity Panel -->
+            <div class="glass-card agent-panel" id="agentPanel">
+                <div class="chart-header">
+                    <h2>Agent Activity</h2>
+                    <span class="chart-badge">MULTI-AGENT</span>
+                </div>
+                <div class="agent-list" id="agentList">
+                    <div class="agent-row">
+                        <div class="agent-dot agent-dot-mm"></div>
+                        <span class="agent-name">A-S Market Maker</span>
+                        <span class="agent-stat" id="agentMM_pnl">—</span>
+                        <span class="agent-inv" id="agentMM_inv">inv: 0</span>
+                    </div>
+                    <div class="agent-row">
+                        <div class="agent-dot agent-dot-noise"></div>
+                        <span class="agent-name">Noise ×3</span>
+                        <span class="agent-stat" id="agentNoise_orders">—</span>
+                        <span class="agent-inv" id="agentNoise_fills">fills: 0</span>
+                    </div>
+                    <div class="agent-row">
+                        <div class="agent-dot agent-dot-informed"></div>
+                        <span class="agent-name">Informed Trader</span>
+                        <span class="agent-stat" id="agentInformed_pnl">—</span>
+                        <span class="agent-inv" id="agentInformed_fills">fills: 0</span>
+                    </div>
+                    <div class="agent-row">
+                        <div class="agent-dot agent-dot-momentum"></div>
+                        <span class="agent-name">Momentum</span>
+                        <span class="agent-stat" id="agentMomentum_pnl">—</span>
+                        <span class="agent-inv" id="agentMomentum_fills">fills: 0</span>
+                    </div>
+                    <div class="agent-row">
+                        <div class="agent-dot agent-dot-latarb"></div>
+                        <span class="agent-name">Latency Arb</span>
+                        <span class="agent-stat" id="agentLatArb_pnl">—</span>
+                        <span class="agent-inv" id="agentLatArb_inv">inv: 0</span>
+                    </div>
+                </div>
+            </div>
+
             <!-- Trade Tape -->
             <div class="glass-card tape-panel" id="tapePanel">
                 <div class="chart-header">
@@ -147,14 +244,16 @@
             <div class="footer-left">
                 <span>C++20 Matching Engine</span>
                 <span class="footer-sep">•</span>
-                <span>Avellaneda-Stoikov Optimal Quoting</span>
+                <span>Event-Driven Simulation</span>
                 <span class="footer-sep">•</span>
-                <span>Integer Tick Prices</span>
+                <span>Hawkes Order Flow</span>
+                <span class="footer-sep">•</span>
+                <span>Regime Switching</span>
             </div>
             <div class="footer-right">
                 <span>r = s − q·γ·σ²·(T−t)</span>
                 <span class="footer-sep">|</span>
-                <span>δ = γ·σ²·(T−t) + (2/γ)·ln(1 + γ/κ)</span>
+                <span>λ(t) = μ + Σ α·e<sup>-β(t-tᵢ)</sup></span>
             </div>
         </footer>
     </main>

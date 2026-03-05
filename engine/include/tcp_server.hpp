@@ -2,11 +2,12 @@
 /// @file tcp_server.hpp
 /// @brief Cross-platform TCP server for the matching engine.
 ///
-/// Uses Winsock2 on Windows. Single-threaded event loop with select().
-/// Accepts multiple client connections, reads NewOrderMsg/CancelMsg,
+/// Uses Winsock2 on Windows, POSIX sockets on Linux/macOS.
+/// Single-threaded event loop with select().
+/// Accepts multiple client connections, reads NewOrderMsg/CancelMsg/ModifyMsg,
 /// feeds to MatchingEngine, broadcasts Fill/BookUpdate to all clients.
 ///
-/// Framing: [4-byte payload length (little-endian)] [1-byte MsgType] [payload]
+/// Framing: [1-byte MsgType] [4-byte payload length (LE)] [payload]
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -26,26 +27,28 @@ constexpr SocketType INVALID_SOCK = -1;
 #endif
 
 #include "matching_engine.hpp"
+
 #include <cstdint>
 #include <functional>
 #include <string>
 #include <vector>
 
+
 namespace arena {
 
 /// Callback for log messages.
-using LogCallback = std::function<void(const std::string &)>;
+using LogCallback = std::function<void(const std::string&)>;
 
 class TcpServer {
 public:
   /// @param engine Reference to the matching engine.
   /// @param port   TCP port to listen on.
-  explicit TcpServer(MatchingEngine &engine, uint16_t port = 9876);
+  explicit TcpServer(MatchingEngine& engine, uint16_t port = 9876);
   ~TcpServer();
 
   // Non-copyable.
-  TcpServer(const TcpServer &) = delete;
-  TcpServer &operator=(const TcpServer &) = delete;
+  TcpServer(const TcpServer&) = delete;
+  TcpServer& operator=(const TcpServer&) = delete;
 
   /// Set a logging callback.
   void set_log_callback(LogCallback cb) { on_log_ = std::move(cb); }
@@ -61,22 +64,23 @@ public:
   void stop();
 
   /// Broadcast a message to all connected clients.
-  template <typename MsgT> void broadcast(const MsgT &msg);
+  template <typename MsgT>
+  void broadcast(const MsgT& msg);
 
-  [[nodiscard]] std::size_t client_count() const noexcept {
-    return clients_.size();
-  }
+  [[nodiscard]] std::size_t client_count() const noexcept { return clients_.size(); }
 
 private:
   void accept_client();
   void handle_client(std::size_t idx);
   void remove_client(std::size_t idx);
-  void process_message(std::size_t client_idx, MsgType type,
-                       const uint8_t *payload, uint32_t len);
+  void process_message(std::size_t client_idx, MsgType type, const uint8_t *payload, uint32_t len);
 
-  void log(const std::string &msg);
+  /// Send a reject message to a specific client.
+  void send_reject(std::size_t client_idx, OrderId id, RejectReason reason);
 
-  MatchingEngine &engine_;
+  void log(const std::string& msg);
+
+  MatchingEngine& engine_;
   uint16_t port_;
   SocketType listen_sock_ = INVALID_SOCK;
   bool running_ = false;
@@ -96,12 +100,12 @@ private:
 
 // ── Template implementations ─────────────────────────────────────────
 
-template <typename MsgT> void TcpServer::broadcast(const MsgT &msg) {
+template <typename MsgT>
+void TcpServer::broadcast(const MsgT& msg) {
   std::size_t total = serialize(msg, send_buffer_);
-  for (auto &client : clients_) {
+  for (auto& client : clients_) {
     if (client.sock != INVALID_SOCK) {
-      send(client.sock, reinterpret_cast<const char *>(send_buffer_),
-           static_cast<int>(total), 0);
+      send(client.sock, reinterpret_cast<const char *>(send_buffer_), static_cast<int>(total), 0);
     }
   }
 }

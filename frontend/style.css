@@ -1,4 +1,4 @@
-/* ── Liquidity Arena — Premium Finance Terminal Theme ── */
+/* ── Liquidity Arena — Premium Finance Terminal Theme v2.0 ── */
 
 :root {
     --bg-primary: #060a13;
@@ -25,9 +25,14 @@
     --accent-glow: rgba(99, 102, 241, 0.5);
 
     --warning: #f59e0b;
+    --warning-dim: rgba(245, 158, 11, 0.12);
 
     --positive: #10b981;
     --negative: #ef4444;
+
+    --regime-calm: #10b981;
+    --regime-volatile: #f59e0b;
+    --regime-news: #ef4444;
 
     --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -166,6 +171,99 @@ h1 {
     border: 1px solid var(--border-color);
 }
 
+/* ── Header Center: Regime + Latency ── */
+.header-center {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.regime-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 14px;
+    border-radius: var(--radius-sm);
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    transition: all 0.4s ease;
+}
+
+.regime-indicator.volatile {
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.regime-indicator.news {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.2);
+    animation: news-pulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes news-pulse {
+    from {
+        box-shadow: 0 0 4px rgba(239, 68, 68, 0.2);
+    }
+
+    to {
+        box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+    }
+}
+
+.regime-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--regime-calm);
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    transition: all 0.4s ease;
+}
+
+.regime-indicator.volatile .regime-dot {
+    background: var(--regime-volatile);
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+}
+
+.regime-indicator.news .regime-dot {
+    background: var(--regime-news);
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
+}
+
+.regime-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    color: var(--regime-calm);
+    transition: color 0.4s ease;
+}
+
+.regime-indicator.volatile .regime-label {
+    color: var(--regime-volatile);
+}
+
+.regime-indicator.news .regime-label {
+    color: var(--regime-news);
+}
+
+.latency-display {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.latency-icon {
+    font-size: 12px;
+}
+
+.latency-value {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
 .header-right {
     display: flex;
     align-items: center;
@@ -292,7 +390,6 @@ main {
     color: var(--warning) !important;
 }
 
-/* Value flash animation */
 @keyframes value-flash {
     0% {
         background: rgba(99, 102, 241, 0.2);
@@ -311,7 +408,7 @@ main {
 .dashboard-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto auto;
+    grid-template-rows: auto auto auto auto;
     gap: 14px;
     margin-bottom: 18px;
 }
@@ -375,6 +472,12 @@ main {
 
 .pnl-badge {
     color: var(--text-secondary);
+    background: var(--accent-dim);
+    animation: none;
+}
+
+.metrics-badge {
+    color: var(--accent);
     background: var(--accent-dim);
     animation: none;
 }
@@ -495,10 +598,151 @@ main {
     grid-row: 2 / 3;
 }
 
+/* ── Quantitative Metrics Panel ── */
+.metrics-panel {
+    padding: 16px 20px;
+    grid-column: 1 / 2;
+    grid-row: 3 / 4;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px 16px;
+}
+
+.metric-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.metric-label {
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+}
+
+.metric-value {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    transition: color 0.3s ease;
+}
+
+.metric-value.positive {
+    color: var(--positive);
+}
+
+.metric-value.negative {
+    color: var(--negative);
+}
+
+.metric-divider {
+    grid-column: 1 / -1;
+    height: 1px;
+    background: var(--border-color);
+    margin: 4px 0;
+}
+
+.metric-decomp .metric-label {
+    color: var(--accent);
+    opacity: 0.6;
+}
+
+/* ── Agent Activity Panel ── */
+.agent-panel {
+    padding: 16px 20px;
+    grid-column: 2 / 3;
+    grid-row: 3 / 4;
+}
+
+.agent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.agent-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    transition: all 0.2s ease;
+}
+
+.agent-row:hover {
+    border-color: var(--border-glow);
+    transform: translateX(2px);
+}
+
+.agent-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.agent-dot-mm {
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent-glow);
+}
+
+.agent-dot-noise {
+    background: #8b5cf6;
+    box-shadow: 0 0 6px rgba(139, 92, 246, 0.5);
+}
+
+.agent-dot-informed {
+    background: var(--ask-color);
+    box-shadow: 0 0 6px var(--ask-glow);
+}
+
+.agent-dot-momentum {
+    background: var(--warning);
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.5);
+}
+
+.agent-dot-latarb {
+    background: #06b6d4;
+    box-shadow: 0 0 6px rgba(6, 182, 212, 0.5);
+}
+
+.agent-name {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    flex: 1;
+}
+
+.agent-stat {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    min-width: 60px;
+    text-align: right;
+}
+
+.agent-inv {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    min-width: 60px;
+    text-align: right;
+}
+
 /* ── Trade Tape ── */
 .tape-panel {
     grid-column: 1 / -1;
-    grid-row: 3 / 4;
+    grid-row: 4 / 5;
     padding: 16px 20px;
 }
 
@@ -618,13 +862,19 @@ main {
     }
 
     .gauge-panel,
-    #spreadPanel {
+    #spreadPanel,
+    .metrics-panel,
+    .agent-panel {
         grid-column: auto;
         grid-row: auto;
     }
 
     .tape-panel {
         grid-column: auto;
+    }
+
+    .header-center {
+        display: none;
     }
 }
 
@@ -645,5 +895,9 @@ main {
         flex-direction: column;
         gap: 6px;
         text-align: center;
+    }
+
+    .metrics-grid {
+        grid-template-columns: 1fr 1fr;
     }
 }

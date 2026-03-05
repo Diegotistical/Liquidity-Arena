@@ -1,54 +1,101 @@
-engine:
-  host: "127.0.0.1"
-  port: 9876
-  tick_size: 0.01  # 1 tick = 1 cent
+# ═══════════════════════════════════════════════════════════════════════
+# Liquidity Arena — Simulation Configuration
+# ═══════════════════════════════════════════════════════════════════════
+# This config drives the event-driven microstructure simulator.
+# All prices are in integer ticks (NOT floating-point).
 
 simulation:
-  num_steps: 10000
-  step_interval_ms: 10  # 10ms between simulation steps
-
-price_process:
-  type: "OU"           # "OU" (mean-reverting) or "GBM"
-  initial_price: 10000  # $100.00 in ticks
-  kappa: 0.5            # Mean-reversion speed (OU only)
-  theta: 10000          # Long-run mean (OU only)
-  sigma: 50             # Volatility
+  steps: 10000
+  dt: 0.001            # Time increment per step (seconds)
   seed: 42
+  metrics_interval: 100 # Record metrics every N steps
 
+engine:
+  host: "localhost"
+  port: 9876
+
+# ── Price Process ────────────────────────────────────────────────────
+# Supported types: "ou", "gbm", "regime_switching"
+price_process:
+  type: "regime_switching"
+  initial_price: 10000
+  # OU / shared parameters
+  kappa: 0.3           # Mean reversion speed
+  theta: 10000         # Long-run mean
+  sigma: 50.0          # Base volatility
+  seed: 42
+  # GBM-specific
+  mu: 0.0              # Drift (0 = no directional bias)
+  # Regime switching (only used when type=regime_switching)
+  regimes:
+    calm:
+      sigma: 30
+      duration_mean: 200
+    volatile:
+      sigma: 100
+      duration_mean: 50
+    news:
+      sigma: 200
+      jump_size: 50
+      duration_mean: 10
+
+# ── Order Flow Model ────────────────────────────────────────────────
+# Supports: "poisson" (default), "hawkes" (self-exciting)
+order_flow:
+  model: "hawkes"
+  hawkes_mu: 1.0       # Base intensity (events/step)
+  hawkes_alpha: 0.6    # Excitation amplitude
+  hawkes_beta: 1.5     # Decay rate (α/β < 1 required)
+
+# ── Latency Model ───────────────────────────────────────────────────
+# Per-agent latency in microseconds (applied as event offsets).
+latency:
+  market_maker_us: 200
+  noise_trader_us: 1000
+  informed_trader_us: 500
+  momentum_trader_us: 1000
+  latency_arb_us: 50
+
+# ── Fee Schedule ────────────────────────────────────────────────────
+# Maker/taker fees in basis points (1 bp = 0.01%).
+fees:
+  maker_rebate_bps: 2.0    # Maker earns 0.02% per fill
+  taker_fee_bps: 3.0       # Taker pays 0.03% per fill
+
+# ── Agents ──────────────────────────────────────────────────────────
 agents:
-  market_maker:
-    gamma: 0.01          # Risk aversion (higher = wider spreads)
-    kappa: 1.5           # Order arrival intensity
-    max_inventory: 100
-    num_levels: 3        # Quote 3 bid + 3 ask price levels
-    level_spacing: 2     # Ticks between quote levels
-    base_quantity: 50
-    sigma_window: 100    # Rolling window for σ² estimation
+  num_noise: 3  # Number of noise trader instances
 
-  noise_traders:
-    count: 5
-    order_prob: 0.3
-    spread_range: 20     # Max ticks from midprice
+  market_maker:
+    gamma: 0.1             # Risk aversion (Avellaneda-Stoikov)
+    kappa: 1.5             # Order fill intensity
+    levels: 3              # Number of quote levels per side
+    level_spacing: 5       # Ticks between levels
+    base_qty: 100          # Quantity per quote
+    inventory_limit: 500   # Max |inventory| before stopping quotes
+    cancel_rate: 0.95      # Fraction of quotes cancelled before fill
+
+  noise_trader:
+    order_prob: 0.3        # Probability of placing an order each step
+    spread_range: 20       # Random offset range from mid
     min_qty: 10
     max_qty: 100
     market_order_prob: 0.05
 
-  informed_traders:
-    count: 2
-    threshold: 15        # Ticks of edge before trading
-    aggression: 0.8      # Probability of acting on signal
+  informed_trader:
+    threshold: 15          # Minimum edge (ticks) before acting
+    aggression: 0.8        # Probability of acting when signal exists
     min_qty: 50
     max_qty: 200
 
-  momentum_traders:
-    count: 2
-    fast_period: 10
-    slow_period: 50
+  momentum_trader:
+    fast_period: 10        # Fast EMA period
+    slow_period: 50        # Slow EMA period
     trade_prob: 0.3
     min_qty: 20
     max_qty: 80
 
-visualization:
-  ws_port: 8765
-  http_port: 8080
-  update_interval: 5    # Push to frontend every N steps
+  latency_arb:
+    threshold: 5           # Minimum edge (ticks) to exploit
+    max_position: 50       # Max |inventory| (flat preference)
+    trade_prob: 0.9        # Probability of acting on signal

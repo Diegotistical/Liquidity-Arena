@@ -1,7 +1,8 @@
 /**
- * app.js — Liquidity Arena Premium Dashboard
+ * app.js — Liquidity Arena Premium Dashboard v2.0
  *
  * WebSocket client + Chart.js visualizations + particle effects
+ * + regime indicator + quantitative metrics + agent activity
  */
 
 // ── Configuration ────────────────────────────────────────────────────
@@ -17,7 +18,7 @@ const $spread = $('spread');
 const $mmPnl = $('mmPnl');
 const $mmInventory = $('mmInventory');
 const $mmFills = $('mmFills');
-const $simStep = $('simStep');
+const $eventRate = $('eventRate');
 const $statusDot = document.querySelector('.status-dot');
 const $statusText = document.querySelector('.status-text');
 const $pnlBadge = $('pnlBadge');
@@ -28,6 +29,24 @@ const $tradeTape = $('tradeTape');
 const $reservationPrice = $('reservationPrice');
 const $sigmaEstimate = $('sigmaEstimate');
 const $optimalSpread = $('optimalSpread');
+
+// Regime indicator
+const $regimeIndicator = $('regimeIndicator');
+const $regimeLabel = $('regimeLabel');
+
+// Metrics
+const $metricSharpe = $('metricSharpe');
+const $metricAdverse = $('metricAdverse');
+const $metricFillRatio = $('metricFillRatio');
+const $metricInvVar = $('metricInvVar');
+const $metricQuoteLife = $('metricQuoteLife');
+const $metricOTR = $('metricOTR');
+const $metricSpreadCap = $('metricSpreadCap');
+const $metricInvPnl = $('metricInvPnl');
+const $metricFees = $('metricFees');
+
+// Latency
+const $engineLatency = $('engineLatency');
 
 // ── Chart.js Global Config ───────────────────────────────────────────
 Chart.defaults.color = '#6b7280';
@@ -228,6 +247,8 @@ function connect() {
 let prevPnl = null;
 let prevSpread = null;
 let tradeCount = 0;
+let lastUpdateTime = performance.now();
+let updateCounter = 0;
 
 function formatPrice(ticks) { return (ticks * 0.01).toFixed(2); }
 
@@ -237,54 +258,116 @@ function flashElement(el) {
     el.classList.add('flash');
 }
 
+function colorValue(value) {
+    return value > 0 ? 'var(--positive)' : value < 0 ? 'var(--negative)' : 'var(--text-primary)';
+}
+
 function updateDashboard(data) {
     const book = data.book;
     const mm = data.mm;
 
-    // Stats bar
+    // ── Stats Bar ────────────────────────────────────────────────
     $bestBid.textContent = `$${formatPrice(book.best_bid)}`;
     $bestAsk.textContent = `$${formatPrice(book.best_ask)}`;
     $spread.textContent = `${mm.spread} ticks`;
     flashElement($spread);
 
     $mmPnl.textContent = `$${mm.pnl.toFixed(2)}`;
-    $mmPnl.style.color = mm.pnl >= 0 ? 'var(--positive)' : 'var(--negative)';
+    $mmPnl.style.color = colorValue(mm.pnl);
     flashElement($mmPnl);
 
     $pnlBadge.textContent = mm.pnl >= 0 ? `+$${mm.pnl.toFixed(0)}` : `-$${Math.abs(mm.pnl).toFixed(0)}`;
-    $pnlBadge.style.color = mm.pnl >= 0 ? 'var(--positive)' : 'var(--negative)';
+    $pnlBadge.style.color = colorValue(mm.pnl);
 
     $mmInventory.textContent = mm.inventory > 0 ? `+${mm.inventory}` : mm.inventory;
     $mmInventory.style.color = mm.inventory > 0 ? 'var(--bid-color)' : mm.inventory < 0 ? 'var(--ask-color)' : 'var(--text-primary)';
 
     $mmFills.textContent = mm.fills.toLocaleString();
-    $simStep.textContent = data.step.toLocaleString();
 
-    // Inventory gauge
+    // Events/sec calculation
+    updateCounter++;
+    const now = performance.now();
+    if (now - lastUpdateTime > 1000) {
+        const rate = updateCounter / ((now - lastUpdateTime) / 1000);
+        $eventRate.textContent = `${rate.toFixed(0)}`;
+        updateCounter = 0;
+        lastUpdateTime = now;
+    }
+
+    // ── Regime Indicator ─────────────────────────────────────────
+    if (data.regime) {
+        const regimeMap = { 0: 'CALM', 1: 'VOLATILE', 2: 'NEWS' };
+        const regimeClass = { 0: '', 1: 'volatile', 2: 'news' };
+        $regimeIndicator.className = `regime-indicator ${regimeClass[data.regime] || ''}`;
+        $regimeLabel.textContent = regimeMap[data.regime] || 'CALM';
+    }
+
+    // ── Engine Latency ───────────────────────────────────────────
+    if (data.latency_us) {
+        $engineLatency.textContent = `${data.latency_us.toFixed(0)}µs`;
+    }
+
+    // ── Inventory Gauge ──────────────────────────────────────────
     updateGauge(mm.inventory);
 
-    // A-S model params (if available)
+    // ── A-S Model Params ─────────────────────────────────────────
     if (data.mm_model) {
         $reservationPrice.textContent = `$${formatPrice(data.mm_model.reservation)}`;
         $sigmaEstimate.textContent = data.mm_model.sigma_sq.toFixed(2);
         $optimalSpread.textContent = `${data.mm_model.spread.toFixed(1)}`;
     }
 
-    // Depth chart
+    // ── Quantitative Metrics ─────────────────────────────────────
+    if (data.metrics) {
+        const m = data.metrics;
+        updateMetric($metricSharpe, m.sharpe_ratio, v => v.toFixed(2));
+        updateMetric($metricAdverse, m.adverse_selection, v => `${v.toFixed(1)} ticks`);
+        updateMetric($metricFillRatio, m.fill_ratio, v => (v * 100).toFixed(1) + '%');
+        updateMetric($metricInvVar, m.inventory_variance, v => v.toFixed(1));
+        updateMetric($metricQuoteLife, m.quote_lifetime_avg, v => v.toFixed(1));
+        updateMetric($metricOTR, m.order_to_trade_ratio, v => v.toFixed(1));
+
+        // PnL decomposition
+        if (m.spread_capture !== undefined) {
+            updateMetric($metricSpreadCap, m.spread_capture, v => `$${v.toFixed(0)}`);
+            updateMetric($metricInvPnl, m.inventory_pnl, v => `$${v.toFixed(0)}`);
+            updateMetric($metricFees, m.net_fees, v => `$${v.toFixed(0)}`);
+        }
+    }
+
+    // ── Agent Activity ───────────────────────────────────────────
+    if (data.agents) {
+        for (const [id, stats] of Object.entries(data.agents)) {
+            const pnlEl = $(`agent${id}_pnl`);
+            const invEl = $(`agent${id}_inv`) || $(`agent${id}_fills`);
+            if (pnlEl) {
+                pnlEl.textContent = `$${stats.pnl.toFixed(0)}`;
+                pnlEl.style.color = colorValue(stats.pnl);
+            }
+            if (invEl) {
+                if (stats.inventory !== undefined) {
+                    invEl.textContent = `inv: ${stats.inventory}`;
+                } else {
+                    invEl.textContent = `fills: ${stats.fills}`;
+                }
+            }
+        }
+    }
+
+    // ── Depth Chart ──────────────────────────────────────────────
     updateDepthChart(book);
 
-    // PnL chart
+    // ── PnL Chart ────────────────────────────────────────────────
     addChartPoint(pnlChart, data.step, mm.pnl);
-    // Dynamic PnL line color
     pnlChart.data.datasets[0].borderColor = mm.pnl >= 0 ? '#10b981' : '#ef4444';
     pnlChart.data.datasets[0].backgroundColor = mm.pnl >= 0 ? 'rgba(16, 185, 129, 0.06)' : 'rgba(239, 68, 68, 0.06)';
     pnlChart.update('none');
 
-    // Spread chart
+    // ── Spread Chart ─────────────────────────────────────────────
     addChartPoint(spreadChart, data.step, mm.spread);
     spreadChart.update('none');
 
-    // Particle effect on PnL change
+    // ── Particle Effects ─────────────────────────────────────────
     if (prevPnl !== null && mm.pnl !== prevPnl) {
         const pnlDiff = mm.pnl - prevPnl;
         const color = pnlDiff > 0 ? '#10b981' : '#ef4444';
@@ -293,7 +376,7 @@ function updateDashboard(data) {
     }
     prevPnl = mm.pnl;
 
-    // Trade tape (simulate trades from fills)
+    // ── Trade Tape ───────────────────────────────────────────────
     if (mm.fills > tradeCount && book.best_bid > 0) {
         const newFills = mm.fills - tradeCount;
         for (let i = 0; i < Math.min(newFills, 3); i++) {
@@ -302,6 +385,22 @@ function updateDashboard(data) {
                 Math.random() > 0.5 ? 'buy' : 'sell');
         }
         tradeCount = mm.fills;
+    }
+}
+
+function updateMetric(el, value, formatFn) {
+    if (el && value !== undefined && value !== null) {
+        el.textContent = formatFn(value);
+        // Color positive/negative metrics
+        if (typeof value === 'number') {
+            if (el.id === 'metricSharpe') {
+                el.style.color = value > 1 ? 'var(--positive)' : value < 0 ? 'var(--negative)' : 'var(--text-primary)';
+            } else if (el.id === 'metricAdverse') {
+                el.style.color = value > 0 ? 'var(--negative)' : value < 0 ? 'var(--positive)' : 'var(--text-primary)';
+            } else if (el.id === 'metricSpreadCap' || el.id === 'metricInvPnl' || el.id === 'metricFees') {
+                el.style.color = colorValue(value);
+            }
+        }
     }
 }
 
@@ -339,11 +438,11 @@ function updateDepthChart(book) {
 }
 
 function updateGauge(inventory) {
-    const maxInv = 100;
+    const maxInv = 500;
     const pct = Math.min(Math.abs(inventory) / maxInv, 1);
     const markerPct = 50 + (inventory / maxInv) * 50;
 
-    $gaugeMarker.style.left = `${markerPct}%`;
+    $gaugeMarker.style.left = `${Math.max(2, Math.min(98, markerPct))}%`;
     $gaugeValue.textContent = inventory > 0 ? `+${inventory}` : inventory;
 
     if (inventory > 0) {
@@ -360,10 +459,16 @@ function updateGauge(inventory) {
         $gaugeFill.style.width = '0';
         $gaugeValue.style.color = 'var(--text-primary)';
     }
+
+    // Danger indicator at extreme inventory
+    if (pct > 0.8) {
+        $gaugeValue.style.textShadow = `0 0 12px ${inventory > 0 ? 'rgba(16, 185, 129, 0.5)' : 'rgba(239, 68, 68, 0.5)'}`;
+    } else {
+        $gaugeValue.style.textShadow = 'none';
+    }
 }
 
 function addTradeToTape(price, qty, side) {
-    // Remove empty placeholder
     const empty = $tradeTape.querySelector('.tape-empty');
     if (empty) empty.remove();
 
@@ -379,7 +484,6 @@ function addTradeToTape(price, qty, side) {
 
     $tradeTape.prepend(trade);
 
-    // Limit tape length
     while ($tradeTape.children.length > MAX_TAPE) {
         $tradeTape.removeChild($tradeTape.lastChild);
     }

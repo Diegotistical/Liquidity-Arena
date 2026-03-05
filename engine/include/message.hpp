@@ -8,10 +8,28 @@
 /// Using plain structs with memcpy serialization — no protobuf overhead.
 /// This is intentional: in real HFT systems, custom binary protocols
 /// outperform general-purpose serialization by 10-100x.
+///
+/// Portability: Uses ARENA_PACKED macros for cross-platform struct packing
+/// (GCC/Clang __attribute__((packed)) vs MSVC #pragma pack).
 
 #include "types.hpp"
+
 #include <cstdint>
 #include <cstring>
+
+
+// ── Cross-platform struct packing ────────────────────────────────────
+// MSVC uses #pragma pack; GCC/Clang use __attribute__((packed)).
+// Usage: ARENA_PACK_BEGIN struct Foo { ... } ARENA_PACK_END;
+#ifdef _MSC_VER
+#define ARENA_PACK_BEGIN __pragma(pack(push, 1))
+#define ARENA_PACK_END __pragma(pack(pop))
+#define ARENA_PACKED
+#else
+#define ARENA_PACK_BEGIN
+#define ARENA_PACK_END
+#define ARENA_PACKED __attribute__((packed))
+#endif
 
 namespace arena {
 
@@ -22,18 +40,22 @@ enum class MsgType : uint8_t {
   FILL = 3,
   BOOK_UPDATE = 4,
   REJECT = 5,
+  MODIFY_ORDER = 6,
   HEARTBEAT = 255
 };
 
 // ── Header (5 bytes) ─────────────────────────────────────────────────
+ARENA_PACK_BEGIN
 struct MsgHeader {
   MsgType type;
   uint32_t length; // Payload length in bytes (excluding header)
-} __attribute__((packed));
+} ARENA_PACKED;
+ARENA_PACK_END
 
 // ── Client → Engine messages ─────────────────────────────────────────
 
 /// New order request from a client.
+ARENA_PACK_BEGIN
 struct NewOrderMsg {
   static constexpr MsgType MSG_TYPE = MsgType::NEW_ORDER;
 
@@ -42,18 +64,36 @@ struct NewOrderMsg {
   OrderType type;
   Tick price; // In integer ticks (NEVER float)
   Quantity quantity;
-} __attribute__((packed));
+  Quantity display_qty; // For iceberg: visible portion. 0 = full visibility.
+} ARENA_PACKED;
+ARENA_PACK_END
 
 /// Cancel order request from a client.
+ARENA_PACK_BEGIN
 struct CancelOrderMsg {
   static constexpr MsgType MSG_TYPE = MsgType::CANCEL_ORDER;
 
   OrderId id;
-} __attribute__((packed));
+} ARENA_PACKED;
+ARENA_PACK_END
+
+/// Modify order request from a client.
+/// If new_price differs from current, the order loses queue position (cancel+re-add).
+/// If only quantity decreases, queue position is preserved.
+ARENA_PACK_BEGIN
+struct ModifyOrderMsg {
+  static constexpr MsgType MSG_TYPE = MsgType::MODIFY_ORDER;
+
+  OrderId id;
+  Tick new_price;
+  Quantity new_quantity;
+} ARENA_PACKED;
+ARENA_PACK_END
 
 // ── Engine → Client messages ─────────────────────────────────────────
 
 /// Fill notification (sent to both maker and taker).
+ARENA_PACK_BEGIN
 struct FillMsg {
   static constexpr MsgType MSG_TYPE = MsgType::FILL;
 
@@ -61,19 +101,25 @@ struct FillMsg {
   OrderId taker_id;
   Tick price;
   Quantity quantity;
-} __attribute__((packed));
+  double maker_fee; // Rebate earned by maker (negative = earned)
+  double taker_fee; // Fee paid by taker (positive = paid)
+} ARENA_PACKED;
+ARENA_PACK_END
 
 /// Order rejection.
+ARENA_PACK_BEGIN
 struct RejectMsg {
   static constexpr MsgType MSG_TYPE = MsgType::REJECT;
 
   OrderId id;
-  uint8_t reason; // 0=invalid, 1=pool_full, 2=cancel_not_found
-} __attribute__((packed));
+  RejectReason reason;
+} ARENA_PACKED;
+ARENA_PACK_END
 
 /// LOB snapshot (top N levels, broadcast after each event).
 static constexpr int MAX_DEPTH_LEVELS = 10;
 
+ARENA_PACK_BEGIN
 struct BookUpdateMsg {
   static constexpr MsgType MSG_TYPE = MsgType::BOOK_UPDATE;
 
@@ -85,14 +131,15 @@ struct BookUpdateMsg {
   Quantity bid_quantities[MAX_DEPTH_LEVELS];
   Tick ask_prices[MAX_DEPTH_LEVELS];
   Quantity ask_quantities[MAX_DEPTH_LEVELS];
-} __attribute__((packed));
+} ARENA_PACKED;
+ARENA_PACK_END
 
 // ── Serialization helpers ────────────────────────────────────────────
 
 /// Serialize a message into a buffer with header. Returns total bytes written.
 /// Buffer must be large enough: sizeof(MsgHeader) + sizeof(MsgT).
 template <typename MsgT>
-std::size_t serialize(const MsgT &msg, uint8_t *buffer) {
+std::size_t serialize(const MsgT& msg, uint8_t *buffer) {
   MsgHeader header;
   header.type = MsgT::MSG_TYPE;
   header.length = static_cast<uint32_t>(sizeof(MsgT));
@@ -103,7 +150,8 @@ std::size_t serialize(const MsgT &msg, uint8_t *buffer) {
 }
 
 /// Deserialize a message from a buffer (after header has been read).
-template <typename MsgT> MsgT deserialize(const uint8_t *payload) {
+template <typename MsgT>
+MsgT deserialize(const uint8_t *payload) {
   MsgT msg;
   std::memcpy(&msg, payload, sizeof(MsgT));
   return msg;

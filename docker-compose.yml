@@ -1,0 +1,44 @@
+# ═══════════════════════════════════════════════════════════════════════
+# Liquidity Arena — Docker Compose
+# ═══════════════════════════════════════════════════════════════════════
+#
+# Services:
+#   engine:     C++ matching engine (TCP port 9876)
+#   simulation: Python event-driven simulator
+#   frontend:   Static file server + WebSocket bridge
+#
+# Usage:
+#   docker-compose up          # Start all services
+#   docker-compose up engine   # Engine only
+#   docker-compose logs -f     # Follow logs
+
+services:
+  engine:
+    build: .
+    ports:
+      - "9876:9876"
+    command: ["./arena_engine", "--port", "9876"]
+    healthcheck:
+      test: ["CMD-SHELL", "echo | nc localhost 9876 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  simulation:
+    build: .
+    depends_on:
+      engine:
+        condition: service_healthy
+    command: ["python", "-m", "simulation.simulator", "--config", "simulation/config/default.yaml"]
+    environment:
+      - ENGINE_HOST=engine
+      - ENGINE_PORT=9876
+
+  frontend:
+    build: .
+    ports:
+      - "8080:8080"
+      - "8765:8765"
+    depends_on:
+      - simulation
+    command: ["python", "-c", "from simulation.market.ws_bridge import WebSocketBridge; b = WebSocketBridge(); b.start(); import time; time.sleep(999999)"]

@@ -7,10 +7,13 @@
 ///   - ObjectPool for zero-allocation order creation
 ///   - Tracks best bid/ask for O(1) BBO queries
 ///   - get_depth() returns top-N levels for the frontend
+///   - Supports order modify (price change = cancel+re-add, qty down = in-place)
+///   - Supports iceberg orders (hidden liquidity with display portion)
 ///
 /// Complexity:
 ///   - add_order:    O(1) amortized (hash map insert + list append)
 ///   - cancel_order: O(1) (hash map lookup + list remove)
+///   - modify_order: O(1) for qty down, O(1) amortized for price change
 ///   - get_bbo:      O(1)
 ///   - get_depth:    O(N·log N) where N = number of active price levels
 
@@ -19,13 +22,11 @@
 #include "price_level.hpp"
 #include "types.hpp"
 
-
 #include <algorithm>
 #include <cassert>
 #include <functional>
 #include <unordered_map>
 #include <vector>
-
 
 namespace arena {
 
@@ -44,16 +45,27 @@ public:
   OrderBook() = default;
 
   // Non-copyable (owns the object pool).
-  OrderBook(const OrderBook &) = delete;
-  OrderBook &operator=(const OrderBook &) = delete;
+  OrderBook(const OrderBook&) = delete;
+  OrderBook& operator=(const OrderBook&) = delete;
 
   /// Add a limit order to the book. Returns the Order pointer (owned by pool).
   /// Returns nullptr if the pool is exhausted.
-  Order *add_order(OrderId id, Side side, Tick price, Quantity quantity,
-                   Timestamp ts);
+  Order *add_order(OrderId id, Side side, Tick price, Quantity quantity, Timestamp ts);
+
+  /// Add an iceberg order. display_qty is the visible portion; the rest is
+  /// hidden.
+  Order *add_iceberg_order(OrderId id, Side side, Tick price, Quantity total_qty,
+                           Quantity display_qty, Timestamp ts);
 
   /// Cancel and remove an order by ID. Returns true if found and removed.
   bool cancel_order(OrderId id);
+
+  /// Modify an order's price and/or quantity.
+  /// - If price changes: cancel + re-add (loses queue position).
+  /// - If only quantity decreases: in-place modify (keeps queue position).
+  /// - Quantity increase or other invalid changes return false.
+  /// Returns true if the modification was applied.
+  bool modify_order(OrderId id, Tick new_price, Quantity new_qty);
 
   /// Look up an order by ID. Returns nullptr if not found.
   [[nodiscard]] Order *get_order(OrderId id) const;
@@ -79,15 +91,16 @@ public:
   /// Return an order to the pool.
   void release_order(Order *order);
 
+  /// Replenish an iceberg order's display quantity from its hidden reserve.
+  /// The order is re-added to the BACK of the queue (loses time priority).
+  /// Returns true if replenishment occurred.
+  bool replenish_iceberg(Order *order);
+
   // ── Statistics ──────────────────────────────────────────────────
-  [[nodiscard]] std::size_t total_orders() const noexcept {
-    return order_map_.size();
-  }
+  [[nodiscard]] std::size_t total_orders() const noexcept { return order_map_.size(); }
   [[nodiscard]] std::size_t bid_levels() const noexcept { return bids_.size(); }
   [[nodiscard]] std::size_t ask_levels() const noexcept { return asks_.size(); }
-  [[nodiscard]] std::size_t pool_available() const noexcept {
-    return pool_.available();
-  }
+  [[nodiscard]] std::size_t pool_available() const noexcept { return pool_.available(); }
 
 private:
   /// Recalculate best_bid_ after removing from the bid side.

@@ -3,17 +3,19 @@
 ///
 /// Performance-critical code: no heap allocation, no exceptions,
 /// no virtual dispatch in the matching loop.
+///
+/// Supports: limit orders, market orders, iceberg orders, order modification,
+/// and maker/taker fee calculations.
 
 #include "matching_engine.hpp"
 
 #include <algorithm>
 #include <cstring>
 
-
 namespace arena {
 
 Order *MatchingEngine::process_new_order(OrderId id, Side side, OrderType type, Tick price,
-                                         Quantity quantity, Timestamp ts) {
+                                         Quantity quantity, Timestamp ts, Quantity display_qty) {
   ++total_orders_;
 
   // Input validation.
@@ -23,6 +25,10 @@ Order *MatchingEngine::process_new_order(OrderId id, Side side, OrderType type, 
   if (type == OrderType::LIMIT && price <= 0) [[unlikely]] {
     return nullptr;
   }
+  if (type == OrderType::ICEBERG && (price <= 0 || display_qty <= 0)) [[unlikely]] {
+    return nullptr;
+  }
+
   if (type == OrderType::MARKET) {
     // Market orders: create a temporary order for matching, then discard.
     // Use the worst possible price to ensure it crosses.
@@ -45,8 +51,15 @@ Order *MatchingEngine::process_new_order(OrderId id, Side side, OrderType type, 
     return nullptr; // Market orders never rest
   }
 
-  // Limit order: add to book first, then attempt to match if crossing.
-  Order *order = book_.add_order(id, side, price, quantity, ts);
+  // Iceberg order: add with display/hidden split.
+  Order *order = nullptr;
+  if (type == OrderType::ICEBERG) {
+    order = book_.add_iceberg_order(id, side, price, quantity, display_qty, ts);
+  } else {
+    // Regular limit order.
+    order = book_.add_order(id, side, price, quantity, ts);
+  }
+
   if (order == nullptr)
     return nullptr;
 
@@ -80,6 +93,14 @@ bool MatchingEngine::process_cancel(OrderId id) {
   return success;
 }
 
+bool MatchingEngine::process_modify(OrderId id, Tick new_price, Quantity new_qty) {
+  bool success = book_.modify_order(id, new_price, new_qty);
+  if (success) {
+    ++total_modifies_;
+  }
+  return success;
+}
+
 Quantity MatchingEngine::match_order(Order *incoming) {
   // Determine which side of the book to match against.
   const bool is_buy = (incoming->side == Side::BID);
@@ -91,7 +112,7 @@ Quantity MatchingEngine::match_order(Order *incoming) {
       break; // Empty book
 
     // Check price compatibility.
-    if (incoming->type == OrderType::LIMIT) {
+    if (incoming->type == OrderType::LIMIT || incoming->type == OrderType::ICEBERG) {
       if (is_buy && incoming->price < opposite_best)
         break; // Bid below best ask
       if (!is_buy && incoming->price > opposite_best)
@@ -104,13 +125,28 @@ Quantity MatchingEngine::match_order(Order *incoming) {
       break;
 
     // Determine fill quantity.
-    Quantity fill_qty = std::min(incoming->remaining(), maker->remaining());
+    // For iceberg makers, only the visible portion can be filled at this step.
+    Quantity maker_available = maker->remaining();
+    if (maker->type == OrderType::ICEBERG && maker->display_qty > 0) {
+      // Only the display portion is available for this match cycle.
+      maker_available = std::min(maker_available, static_cast<Quantity>(maker->display_qty));
+    }
+
+    Quantity fill_qty = std::min(incoming->remaining(), maker_available);
     execute_fill(maker, incoming, fill_qty);
 
-    // If maker is fully filled, remove from book.
+    // If maker is fully filled (or display portion consumed).
     if (maker->is_filled()) {
       book_.remove_order_from_level(maker);
       book_.release_order(maker);
+    } else if (maker->type == OrderType::ICEBERG) {
+      // Check if display portion is consumed but hidden remains.
+      Quantity display_remaining =
+          maker->display_qty - (maker->filled_quantity % maker->display_qty);
+      if (display_remaining <= 0 && maker->has_hidden_qty()) {
+        // Replenish: move to back of queue with fresh display slice.
+        book_.replenish_iceberg(maker);
+      }
     }
   }
 
@@ -138,6 +174,12 @@ void MatchingEngine::execute_fill(Order *maker, Order *taker, Quantity fill_qty)
 
   ++total_fills_;
 
+  // Compute fees.
+  double maker_fee = -fees_.maker_rebate(fill_price, fill_qty); // Negative = earned
+  double taker_fee_val = fees_.taker_fee(fill_price, fill_qty); // Positive = paid
+  total_maker_rebates_ += (-maker_fee);
+  total_taker_fees_ += taker_fee_val;
+
   // Emit fill event.
   if (on_fill_) {
     FillMsg fill;
@@ -145,6 +187,8 @@ void MatchingEngine::execute_fill(Order *maker, Order *taker, Quantity fill_qty)
     fill.taker_id = taker->id;
     fill.price = fill_price;
     fill.quantity = fill_qty;
+    fill.maker_fee = maker_fee;
+    fill.taker_fee = taker_fee_val;
     on_fill_(fill);
   }
 }
