@@ -43,7 +43,7 @@ enum class RejectReason : uint8_t {
 
 // ── Constants ────────────────────────────────────────────────────────
 constexpr Tick TICK_SIZE = 1; // 1 tick = 1 cent
-constexpr Tick INVALID_PRICE = std::numeric_limits<Tick>::min();
+constexpr Tick INVALID_PRICE = (std::numeric_limits<Tick>::min)();
 constexpr OrderId INVALID_ORDER = 0;
 
 // ── Fee Schedule ─────────────────────────────────────────────────────

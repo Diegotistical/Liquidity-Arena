@@ -21,6 +21,7 @@ endif()
 # ── Platform-specific: Winsock for networking ────────────────────────
 if(WIN32)
     set(PLATFORM_LIBS ws2_32)
+    add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN)
 endif()
 
 # ── Fetch GoogleTest ─────────────────────────────────────────────────
