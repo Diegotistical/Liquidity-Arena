@@ -39,5 +39,8 @@ ignore = ["E501"]  # Line length handled by formatter
 known-first-party = ["simulation"]
 
 [build-system]
-requires = ["setuptools>=68.0"]
-build-backend = "setuptools.backends._legacy:_Backend"
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["simulation*"]
