@@ -6,6 +6,10 @@
 /// This eliminates IEEE 754 precision errors in price comparisons and
 /// matches the internal representation used by real exchanges (CME, Nasdaq).
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 #include <cstdint>
 #include <limits>
 
