@@ -10,46 +10,50 @@ Uses Python's struct module for zero-dependency binary packing.
 
 import socket
 import struct
-from enum import IntEnum
 from dataclasses import dataclass, field
-from typing import Optional, Callable
+from enum import IntEnum
+from typing import Callable, Optional
 
 
 class MsgType(IntEnum):
-    NEW_ORDER    = 1
+    NEW_ORDER = 1
     CANCEL_ORDER = 2
-    FILL         = 3
-    BOOK_UPDATE  = 4
-    REJECT       = 5
-    HEARTBEAT    = 255
+    FILL = 3
+    BOOK_UPDATE = 4
+    REJECT = 5
+    HEARTBEAT = 255
 
 
 # ── Message structs ───────────────────────────────────────────────────
 
+
 @dataclass
 class NewOrderMsg:
     """Client → Engine: New order request."""
+
     id: int
-    side: int       # 0=BID, 1=ASK
-    type: int       # 0=LIMIT, 1=MARKET
-    price: int      # Integer ticks
+    side: int  # 0=BID, 1=ASK
+    type: int  # 0=LIMIT, 1=MARKET
+    price: int  # Integer ticks
     quantity: int
 
     # Packed format: uint64 OrderId, uint8 Side, uint8 Type, int64 Price, int32 Qty
-    FORMAT = '<QBBqi'
+    FORMAT = "<QBBqi"
     SIZE = struct.calcsize(FORMAT)
 
     def pack(self) -> bytes:
-        return struct.pack(self.FORMAT, self.id, self.side, self.type,
-                           self.price, self.quantity)
+        return struct.pack(
+            self.FORMAT, self.id, self.side, self.type, self.price, self.quantity
+        )
 
 
 @dataclass
 class CancelOrderMsg:
     """Client → Engine: Cancel order request."""
+
     id: int
 
-    FORMAT = '<Q'
+    FORMAT = "<Q"
     SIZE = struct.calcsize(FORMAT)
 
     def pack(self) -> bytes:
@@ -59,63 +63,66 @@ class CancelOrderMsg:
 @dataclass
 class FillMsg:
     """Engine → Client: Fill notification."""
+
     maker_id: int
     taker_id: int
     price: int
     quantity: int
 
-    FORMAT = '<QQqi'
+    FORMAT = "<QQqi"
     SIZE = struct.calcsize(FORMAT)
 
     @classmethod
-    def unpack(cls, data: bytes) -> 'FillMsg':
-        maker_id, taker_id, price, qty = struct.unpack(cls.FORMAT, data[:cls.SIZE])
+    def unpack(cls, data: bytes) -> "FillMsg":
+        maker_id, taker_id, price, qty = struct.unpack(cls.FORMAT, data[: cls.SIZE])
         return cls(maker_id, taker_id, price, qty)
 
 
 MAX_DEPTH_LEVELS = 10
 
+
 @dataclass
 class BookUpdateMsg:
     """Engine → Client: LOB snapshot."""
+
     best_bid: int = 0
     best_ask: int = 0
     num_bid_levels: int = 0
     num_ask_levels: int = 0
-    bid_prices: list = field(default_factory=lambda: [0]*MAX_DEPTH_LEVELS)
-    bid_quantities: list = field(default_factory=lambda: [0]*MAX_DEPTH_LEVELS)
-    ask_prices: list = field(default_factory=lambda: [0]*MAX_DEPTH_LEVELS)
-    ask_quantities: list = field(default_factory=lambda: [0]*MAX_DEPTH_LEVELS)
+    bid_prices: list = field(default_factory=lambda: [0] * MAX_DEPTH_LEVELS)
+    bid_quantities: list = field(default_factory=lambda: [0] * MAX_DEPTH_LEVELS)
+    ask_prices: list = field(default_factory=lambda: [0] * MAX_DEPTH_LEVELS)
+    ask_quantities: list = field(default_factory=lambda: [0] * MAX_DEPTH_LEVELS)
 
     # q=best_bid, q=best_ask, i=num_bid, i=num_ask, 10q bids, 10i bidqty, 10q asks, 10i askqty
-    FORMAT = '<qqii' + 'q'*10 + 'i'*10 + 'q'*10 + 'i'*10
+    FORMAT = "<qqii" + "q" * 10 + "i" * 10 + "q" * 10 + "i" * 10
     SIZE = struct.calcsize(FORMAT)
 
     @classmethod
-    def unpack(cls, data: bytes) -> 'BookUpdateMsg':
-        values = struct.unpack(cls.FORMAT, data[:cls.SIZE])
+    def unpack(cls, data: bytes) -> "BookUpdateMsg":
+        values = struct.unpack(cls.FORMAT, data[: cls.SIZE])
         msg = cls()
         msg.best_bid = values[0]
         msg.best_ask = values[1]
         msg.num_bid_levels = values[2]
         msg.num_ask_levels = values[3]
-        msg.bid_prices     = list(values[4:14])
+        msg.bid_prices = list(values[4:14])
         msg.bid_quantities = list(values[14:24])
-        msg.ask_prices     = list(values[24:34])
+        msg.ask_prices = list(values[24:34])
         msg.ask_quantities = list(values[34:44])
         return msg
 
 
 # ── Header ────────────────────────────────────────────────────────────
 
-HEADER_FORMAT = '<BI'   # 1-byte type + 4-byte length
+HEADER_FORMAT = "<BI"  # 1-byte type + 4-byte length
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
 
 class TcpClient:
     """TCP client that communicates with the C++ matching engine."""
 
-    def __init__(self, host: str = '127.0.0.1', port: int = 9876):
+    def __init__(self, host: str = "127.0.0.1", port: int = 9876):
         self.host = host
         self.port = port
         self.sock: Optional[socket.socket] = None
@@ -141,8 +148,9 @@ class TcpClient:
     def set_book_update_callback(self, cb: Callable):
         self._on_book_update = cb
 
-    def send_new_order(self, order_id: int, side: int, order_type: int,
-                       price: int, quantity: int):
+    def send_new_order(
+        self, order_id: int, side: int, order_type: int, price: int, quantity: int
+    ):
         """Send a new order to the engine."""
         msg = NewOrderMsg(order_id, side, order_type, price, quantity)
         payload = msg.pack()
@@ -176,7 +184,8 @@ class TcpClient:
         # Process complete messages from buffer.
         while len(self._recv_buffer) >= HEADER_SIZE:
             msg_type, payload_len = struct.unpack(
-                HEADER_FORMAT, self._recv_buffer[:HEADER_SIZE])
+                HEADER_FORMAT, self._recv_buffer[:HEADER_SIZE]
+            )
 
             total_size = HEADER_SIZE + payload_len
             if len(self._recv_buffer) < total_size:

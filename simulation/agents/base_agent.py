@@ -8,24 +8,27 @@ Each agent:
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import List, Optional
+from dataclasses import dataclass
+from typing import List
+
 from simulation.market.tcp_client import BookUpdateMsg, FillMsg
 
 
 @dataclass
 class AgentOrder:
     """Order that an agent wants to send."""
+
     order_id: int
-    side: int       # 0=BID, 1=ASK
+    side: int  # 0=BID, 1=ASK
     order_type: int  # 0=LIMIT, 1=MARKET
-    price: int       # Integer ticks
+    price: int  # Integer ticks
     quantity: int
 
 
 @dataclass
 class AgentStats:
     """Running statistics for an agent."""
+
     total_pnl: float = 0.0
     realized_pnl: float = 0.0
     unrealized_pnl: float = 0.0
@@ -64,7 +67,6 @@ class BaseAgent(ABC):
         React to a book update. Returns a list of orders to send.
         This is the main decision function — called every simulation step.
         """
-        pass
 
     def on_fill(self, fill: FillMsg, my_order_id: int):
         """Handle a fill notification for one of our orders."""
@@ -76,14 +78,15 @@ class BaseAgent(ABC):
         if order.side == 1:  # ASK — we sold
             qty = -qty
 
-        old_inventory = self.stats.inventory
+        self.stats.inventory
         self.stats.inventory += qty
         self.stats.total_fills += 1
         self.stats.total_volume += abs(fill.quantity)
 
         # Track realized PnL (FIFO-style cash flow)
-        # Selling: +price*qty, Buying: -price*qty
-        cash_flow = -fill.price * qty  # Negative qty for buys, positive for sells
+        # Selling: +price*qty, Buying: -price*qty.
+        # Negative qty for buys, positive for sells.
+        cash_flow = -fill.price * qty
         self.stats.realized_pnl += cash_flow * self.tick_size
 
         self._fill_prices.append((fill.price, qty))

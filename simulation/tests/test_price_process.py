@@ -2,11 +2,12 @@
 test_price_process.py — Tests for price processes and Hawkes process.
 """
 
-import pytest
 import numpy as np
-from simulation.market.price_process import (
-    GBMProcess, OUProcess, RegimeSwitchingProcess, HawkesProcess, Regime
-)
+import pytest
+
+from simulation.market.price_process import (GBMProcess, HawkesProcess,
+                                             OUProcess, Regime,
+                                             RegimeSwitchingProcess)
 
 
 class TestGBMProcess:
@@ -35,8 +36,7 @@ class TestGBMProcess:
 class TestOUProcess:
     def test_mean_reversion(self):
         """OU process with high kappa should mean-revert toward theta."""
-        ou = OUProcess(initial_price=12000, kappa=5.0, theta=10000,
-                       sigma=10.0, seed=42)
+        ou = OUProcess(initial_price=12000, kappa=5.0, theta=10000, sigma=10.0, seed=42)
         path = ou.generate(1000)
         # After many steps, should be closer to theta.
         assert abs(path[-1] - 10000) < abs(12000 - 10000)

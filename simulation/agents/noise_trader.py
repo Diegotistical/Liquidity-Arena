@@ -5,9 +5,11 @@ Places random limit orders around the midprice and occasional market orders.
 Provides liquidity and creates realistic background noise for the simulation.
 """
 
-import numpy as np
 from typing import List
-from simulation.agents.base_agent import BaseAgent, AgentOrder
+
+import numpy as np
+
+from simulation.agents.base_agent import AgentOrder, BaseAgent
 from simulation.market.tcp_client import BookUpdateMsg
 
 
@@ -22,10 +24,17 @@ class NoiseTrader(BaseAgent):
     - Quantity is random within (min_qty, max_qty).
     """
 
-    def __init__(self, agent_id: str, order_prob: float = 0.3,
-                 spread_range: int = 20, min_qty: int = 10,
-                 max_qty: int = 100, market_order_prob: float = 0.05,
-                 seed: int = 42, **kwargs):
+    def __init__(
+        self,
+        agent_id: str,
+        order_prob: float = 0.3,
+        spread_range: int = 20,
+        min_qty: int = 10,
+        max_qty: int = 100,
+        market_order_prob: float = 0.05,
+        seed: int = 42,
+        **kwargs,
+    ):
         super().__init__(agent_id, **kwargs)
         self.order_prob = order_prob
         self.spread_range = spread_range
@@ -57,7 +66,7 @@ class NoiseTrader(BaseAgent):
                 side=side,
                 order_type=1,  # MARKET
                 price=0,
-                quantity=qty
+                quantity=qty,
             )
             orders.append(order)
             self.track_order(order)
@@ -75,7 +84,7 @@ class NoiseTrader(BaseAgent):
             side=side,
             order_type=0,  # LIMIT
             price=price,
-            quantity=qty
+            quantity=qty,
         )
         orders.append(order)
         self.track_order(order)

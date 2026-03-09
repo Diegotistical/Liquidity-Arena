@@ -16,16 +16,18 @@ making the simulation realistic enough that latency-sensitive
 strategies actually matter.
 """
 
-import numpy as np
 from dataclasses import dataclass
+
+import numpy as np
 
 
 @dataclass
 class LatencyConfig:
     """Latency configuration in microseconds."""
-    base_us: float = 200.0      # Base latency (µs)
-    jitter_us: float = 50.0     # Random jitter (µs, uniform)
-    spike_prob: float = 0.001   # Probability of latency spike
+
+    base_us: float = 200.0  # Base latency (µs)
+    jitter_us: float = 50.0  # Random jitter (µs, uniform)
+    spike_prob: float = 0.001  # Probability of latency spike
     spike_factor: float = 10.0  # Spike multiplier
 
 
@@ -68,17 +70,21 @@ class LatencyModel:
 
 # ── Pre-configured latency profiles ──────────────────────────────────
 
+
 def colocated_latency(seed: int = 42) -> LatencyModel:
     """Co-located HFT: ~5µs base, minimal jitter."""
     return LatencyModel(LatencyConfig(base_us=5.0, jitter_us=2.0), seed)
+
 
 def market_maker_latency(seed: int = 42) -> LatencyModel:
     """Market maker: ~200µs base, moderate jitter."""
     return LatencyModel(LatencyConfig(base_us=200.0, jitter_us=50.0), seed)
 
+
 def retail_latency(seed: int = 42) -> LatencyModel:
     """Retail/noise trader: ~1ms base, high jitter."""
     return LatencyModel(LatencyConfig(base_us=1000.0, jitter_us=300.0), seed)
+
 
 def latency_arb_latency(seed: int = 42) -> LatencyModel:
     """Latency arbitrageur: ~50µs base, low jitter."""

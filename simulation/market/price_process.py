@@ -19,16 +19,17 @@ Why this matters:
   - Regime switches model news events, market opens, etc.
 """
 
-import numpy as np
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Optional
 
+import numpy as np
 
 # ═══════════════════════════════════════════════════════════════════════
 # Price Processes
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class PriceProcess(ABC):
     """Abstract base class for price processes."""
@@ -36,12 +37,10 @@ class PriceProcess(ABC):
     @abstractmethod
     def generate(self, num_steps: int) -> np.ndarray:
         """Generate a price path (in integer ticks)."""
-        pass
 
     @abstractmethod
     def step(self) -> int:
         """Generate the next price tick (online mode)."""
-        pass
 
 
 class GBMProcess(PriceProcess):
@@ -50,8 +49,14 @@ class GBMProcess(PriceProcess):
     dS = μ·S·dt + σ·S·dW (Euler-Maruyama discretization)
     """
 
-    def __init__(self, initial_price: int = 10000, mu: float = 0.0,
-                 sigma: float = 0.005, dt: float = 0.001, seed: int = 42):
+    def __init__(
+        self,
+        initial_price: int = 10000,
+        mu: float = 0.0,
+        sigma: float = 0.005,
+        dt: float = 0.001,
+        seed: int = 42,
+    ):
         self.initial_price = initial_price
         self.mu = mu
         self.sigma = sigma
@@ -65,13 +70,13 @@ class GBMProcess(PriceProcess):
         s = float(self.initial_price)
         for i in range(num_steps):
             dW = self.rng.normal(0, np.sqrt(self.dt))
-            s *= (1 + self.mu * self.dt + self.sigma * dW)
+            s *= 1 + self.mu * self.dt + self.sigma * dW
             prices[i] = int(round(s))
         return prices
 
     def step(self) -> int:
         dW = self.rng.normal(0, np.sqrt(self.dt))
-        self.current_price *= (1 + self.mu * self.dt + self.sigma * dW)
+        self.current_price *= 1 + self.mu * self.dt + self.sigma * dW
         return int(round(self.current_price))
 
 
@@ -84,9 +89,15 @@ class OUProcess(PriceProcess):
     over short horizons, creating a stationary spread.
     """
 
-    def __init__(self, initial_price: int = 10000, kappa: float = 0.5,
-                 theta: int = 10000, sigma: float = 50.0,
-                 dt: float = 0.001, seed: int = 42):
+    def __init__(
+        self,
+        initial_price: int = 10000,
+        kappa: float = 0.5,
+        theta: int = 10000,
+        sigma: float = 50.0,
+        dt: float = 0.001,
+        seed: int = 42,
+    ):
         self.initial_price = initial_price
         self.kappa = kappa
         self.theta = float(theta)
@@ -106,14 +117,16 @@ class OUProcess(PriceProcess):
 
     def step(self) -> int:
         dW = self.rng.normal(0, np.sqrt(self.dt))
-        self.current_price += (self.kappa * (self.theta - self.current_price) * self.dt
-                                + self.sigma * dW)
+        self.current_price += (
+            self.kappa * (self.theta - self.current_price) * self.dt + self.sigma * dW
+        )
         return int(round(self.current_price))
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # Regime-Switching Price Process
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class Regime(IntEnum):
     CALM = 0
@@ -124,8 +137,9 @@ class Regime(IntEnum):
 @dataclass
 class RegimeParams:
     """Parameters for a single volatility regime."""
-    sigma: float         # Volatility in this regime
-    duration_mean: int   # Average duration (steps) before switching
+
+    sigma: float  # Volatility in this regime
+    duration_mean: int  # Average duration (steps) before switching
     jump_size: float = 0.0  # Jump magnitude on entry (for NEWS regime)
 
 
@@ -155,16 +169,23 @@ class RegimeSwitchingProcess(PriceProcess):
     }
 
     # Transition probability matrix (row = from, col = to)
-    TRANSITION_MATRIX = np.array([
-        [0.95, 0.04, 0.01],  # From CALM
-        [0.10, 0.85, 0.05],  # From VOLATILE
-        [0.30, 0.50, 0.20],  # From NEWS
-    ])
+    TRANSITION_MATRIX = np.array(
+        [
+            [0.95, 0.04, 0.01],  # From CALM
+            [0.10, 0.85, 0.05],  # From VOLATILE
+            [0.30, 0.50, 0.20],  # From NEWS
+        ]
+    )
 
-    def __init__(self, initial_price: int = 10000,
-                 kappa: float = 0.3, theta: int = 10000,
-                 regimes: Optional[dict] = None,
-                 dt: float = 0.001, seed: int = 42):
+    def __init__(
+        self,
+        initial_price: int = 10000,
+        kappa: float = 0.3,
+        theta: int = 10000,
+        regimes: Optional[dict] = None,
+        dt: float = 0.001,
+        seed: int = 42,
+    ):
         self.initial_price = initial_price
         self.kappa = kappa
         self.theta = float(theta)
@@ -199,8 +220,9 @@ class RegimeSwitchingProcess(PriceProcess):
         self._maybe_switch_regime()
         sigma = self.regimes[self.current_regime].sigma
         dW = self.rng.normal(0, np.sqrt(self.dt))
-        self.current_price += (self.kappa * (self.theta - self.current_price) * self.dt
-                                + sigma * dW)
+        self.current_price += (
+            self.kappa * (self.theta - self.current_price) * self.dt + sigma * dW
+        )
         return int(round(self.current_price))
 
     def generate(self, num_steps: int) -> np.ndarray:
@@ -213,6 +235,7 @@ class RegimeSwitchingProcess(PriceProcess):
 # ═══════════════════════════════════════════════════════════════════════
 # Hawkes Process (Order Flow Clustering)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class HawkesProcess:
     """
@@ -242,10 +265,12 @@ class HawkesProcess:
           # n_events = number of order arrivals this step
     """
 
-    def __init__(self, mu: float = 1.0, alpha: float = 0.6,
-                 beta: float = 1.5, seed: int = 42):
-        assert alpha / beta < 1.0, \
-            f"α/β must be < 1 for stationarity (got {alpha/beta:.2f})"
+    def __init__(
+        self, mu: float = 1.0, alpha: float = 0.6, beta: float = 1.5, seed: int = 42
+    ):
+        assert (
+            alpha / beta < 1.0
+        ), f"α/β must be < 1 for stationarity (got {alpha/beta:.2f})"
         self.mu = mu
         self.alpha = alpha
         self.beta = beta

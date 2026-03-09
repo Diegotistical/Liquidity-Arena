@@ -10,9 +10,11 @@ that the market maker must manage. This dynamic is central to
 Avellaneda-Stoikov's analysis of optimal market making.
 """
 
-import numpy as np
 from typing import List
-from simulation.agents.base_agent import BaseAgent, AgentOrder
+
+import numpy as np
+
+from simulation.agents.base_agent import AgentOrder, BaseAgent
 from simulation.market.tcp_client import BookUpdateMsg
 
 
@@ -26,9 +28,16 @@ class InformedTrader(BaseAgent):
     The `aggression` parameter controls the probability of acting.
     """
 
-    def __init__(self, agent_id: str, threshold: int = 15,
-                 aggression: float = 0.8, min_qty: int = 50,
-                 max_qty: int = 200, seed: int = 42, **kwargs):
+    def __init__(
+        self,
+        agent_id: str,
+        threshold: int = 15,
+        aggression: float = 0.8,
+        min_qty: int = 50,
+        max_qty: int = 200,
+        seed: int = 42,
+        **kwargs,
+    ):
         super().__init__(agent_id, **kwargs)
         self.threshold = threshold
         self.aggression = aggression
@@ -67,7 +76,7 @@ class InformedTrader(BaseAgent):
                 side=0,  # BID
                 order_type=1,  # MARKET
                 price=0,
-                quantity=qty
+                quantity=qty,
             )
         else:
             # True price is lower — sell aggressively.
@@ -76,7 +85,7 @@ class InformedTrader(BaseAgent):
                 side=1,  # ASK
                 order_type=1,  # MARKET
                 price=0,
-                quantity=qty
+                quantity=qty,
             )
 
         orders.append(order)

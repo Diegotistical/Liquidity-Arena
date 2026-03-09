@@ -6,9 +6,11 @@ directional market orders. Creates autocorrelated order flow
 that the market maker must handle.
 """
 
-import numpy as np
 from typing import List
-from simulation.agents.base_agent import BaseAgent, AgentOrder
+
+import numpy as np
+
+from simulation.agents.base_agent import AgentOrder, BaseAgent
 from simulation.market.tcp_client import BookUpdateMsg
 
 
@@ -22,10 +24,17 @@ class MomentumTrader(BaseAgent):
     Creates autocorrelated (trending) order flow.
     """
 
-    def __init__(self, agent_id: str, fast_period: int = 10,
-                 slow_period: int = 50, trade_prob: float = 0.3,
-                 min_qty: int = 20, max_qty: int = 80,
-                 seed: int = 42, **kwargs):
+    def __init__(
+        self,
+        agent_id: str,
+        fast_period: int = 10,
+        slow_period: int = 50,
+        trade_prob: float = 0.3,
+        min_qty: int = 20,
+        max_qty: int = 80,
+        seed: int = 42,
+        **kwargs,
+    ):
         super().__init__(agent_id, **kwargs)
         self.fast_alpha = 2.0 / (fast_period + 1)
         self.slow_alpha = 2.0 / (slow_period + 1)
@@ -70,7 +79,7 @@ class MomentumTrader(BaseAgent):
                 side=0,  # BID
                 order_type=1,  # MARKET
                 price=0,
-                quantity=qty
+                quantity=qty,
             )
             orders.append(order)
             self.track_order(order)
@@ -82,7 +91,7 @@ class MomentumTrader(BaseAgent):
                 side=1,  # ASK
                 order_type=1,  # MARKET
                 price=0,
-                quantity=qty
+                quantity=qty,
             )
             orders.append(order)
             self.track_order(order)

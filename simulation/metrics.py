@@ -13,18 +13,20 @@ actually care about. These go far beyond basic PnL:
   - PnL Decomposition: spread capture vs adverse selection vs inventory vs fees
 """
 
-import numpy as np
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Optional
+
+import numpy as np
 
 
 @dataclass
 class FillRecord:
     """Record of a single fill for metrics computation."""
+
     timestamp: float
     price: int
     quantity: int
-    side: int       # 0=BID, 1=ASK
+    side: int  # 0=BID, 1=ASK
     is_maker: bool
     mid_at_fill: int
     mid_after_fill: Optional[int] = None  # Set retrospectively
@@ -35,6 +37,7 @@ class FillRecord:
 @dataclass
 class QuoteRecord:
     """Record of a quote placement for lifetime tracking."""
+
     order_id: int
     timestamp: float
     cancel_timestamp: Optional[float] = None
@@ -44,6 +47,7 @@ class QuoteRecord:
 @dataclass
 class MetricsSnapshot:
     """A point-in-time metrics snapshot."""
+
     step: int
     pnl: float
     inventory: int
@@ -169,8 +173,9 @@ class MetricsEngine:
             if q.cancel_timestamp is not None:
                 lifetimes.append(q.cancel_timestamp - q.timestamp)
             elif q.was_filled:
-                lifetimes.append(q.cancel_timestamp - q.timestamp
-                                 if q.cancel_timestamp else 0.0)
+                lifetimes.append(
+                    q.cancel_timestamp - q.timestamp if q.cancel_timestamp else 0.0
+                )
         return float(np.mean(lifetimes)) if lifetimes else 0.0
 
     def order_to_trade_ratio(self) -> float:
@@ -180,7 +185,7 @@ class MetricsEngine:
         Real exchanges see 10:1 to 100:1. Lower = more efficient.
         """
         if self._total_fills == 0:
-            return float('inf')
+            return float("inf")
         return self._total_orders_sent / self._total_fills
 
     # ── PnL Decomposition ────────────────────────────────────────────
@@ -220,7 +225,9 @@ class MetricsEngine:
         # Inventory PnL from mark-to-market.
         inventory_pnl = 0.0
         if len(self._mid_history) >= 2 and len(self._inventory_history) >= 2:
-            for i in range(1, min(len(self._mid_history), len(self._inventory_history))):
+            for i in range(
+                1, min(len(self._mid_history), len(self._inventory_history))
+            ):
                 mid_change = self._mid_history[i] - self._mid_history[i - 1]
                 inventory_pnl += self._inventory_history[i - 1] * mid_change
 

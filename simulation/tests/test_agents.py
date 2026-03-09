@@ -9,17 +9,16 @@ Tests verify:
   - Noise trader random behavior is seeded/reproducible
 """
 
-import pytest
-import numpy as np
 from dataclasses import dataclass
-
 
 # ── Mock BookUpdateMsg ────────────────────────────────────────────────
 # We mock the TCP client's message type so tests don't need a real engine.
 
+
 @dataclass
 class MockBookUpdate:
     """Mock BookUpdateMsg for testing agents without TCP connection."""
+
     best_bid: int = 9995
     best_ask: int = 10005
     num_bid_levels: int = 5
@@ -41,21 +40,22 @@ class MockBookUpdate:
 
 
 # Monkey-patch the import so agents use our mock
-import sys
-from unittest.mock import MagicMock
+import sys  # noqa: E402
+from unittest.mock import MagicMock  # noqa: E402
+
 mock_tcp = MagicMock()
 mock_tcp.BookUpdateMsg = MockBookUpdate
-sys.modules['simulation.market.tcp_client'] = mock_tcp
+sys.modules["simulation.market.tcp_client"] = mock_tcp
 
-from simulation.agents.noise_trader import NoiseTrader
-from simulation.agents.informed_trader import InformedTrader
-from simulation.agents.momentum_trader import MomentumTrader
-from simulation.agents.latency_arb import LatencyArb
-
+from simulation.agents.informed_trader import InformedTrader  # noqa: E402
+from simulation.agents.latency_arb import LatencyArb  # noqa: E402
+from simulation.agents.momentum_trader import MomentumTrader  # noqa: E402
+from simulation.agents.noise_trader import NoiseTrader  # noqa: E402
 
 # ═══════════════════════════════════════════════════════════════════════
 # Noise Trader Tests
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestNoiseTrader:
     def setup_method(self):
@@ -68,7 +68,9 @@ class TestNoiseTrader:
         for step in range(100):
             orders = self.trader.on_book_update(self.update, step)
             all_orders.extend(orders)
-        assert len(all_orders) > 0, "Noise trader should produce some orders over 100 steps"
+        assert (
+            len(all_orders) > 0
+        ), "Noise trader should produce some orders over 100 steps"
 
     def test_order_valid_sides(self):
         """All orders should have valid side (0=BID or 1=ASK)."""
@@ -101,6 +103,7 @@ class TestNoiseTrader:
 # ═══════════════════════════════════════════════════════════════════════
 # Informed Trader Tests
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestInformedTrader:
     def setup_method(self):
@@ -146,6 +149,7 @@ class TestInformedTrader:
 # Momentum Trader Tests
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestMomentumTrader:
     def setup_method(self):
         self.trader = MomentumTrader(agent_id="MOMENTUM", seed=42)
@@ -173,6 +177,7 @@ class TestMomentumTrader:
 # ═══════════════════════════════════════════════════════════════════════
 # Latency Arb Tests
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestLatencyArb:
     def setup_method(self):

@@ -19,42 +19,40 @@ This means faster agents genuinely see stale quotes first.
 """
 
 import heapq
-import json
 import logging
 import signal
-import sys
 import time
 from dataclasses import dataclass, field
 from enum import IntEnum
-from pathlib import Path
 from typing import Any, Optional
 
-import numpy as np
 import yaml
 
-from simulation.agents.base_agent import BaseAgent, AgentOrder
-from simulation.agents.market_maker import AvellanedaStoikovMM
-from simulation.agents.noise_trader import NoiseTrader
+from simulation.agents.base_agent import AgentOrder, BaseAgent
 from simulation.agents.informed_trader import InformedTrader
-from simulation.agents.momentum_trader import MomentumTrader
 from simulation.agents.latency_arb import LatencyArb
-from simulation.market.tcp_client import TcpClient, BookUpdateMsg
-from simulation.market.price_process import (
-    GBMProcess, OUProcess, RegimeSwitchingProcess, HawkesProcess
-)
-from simulation.market.latency_model import (
-    LatencyModel, LatencyConfig,
-    market_maker_latency, retail_latency, latency_arb_latency
-)
-from simulation.metrics import MetricsEngine, FillRecord, QuoteRecord
+from simulation.agents.market_maker import AvellanedaStoikovMM
+from simulation.agents.momentum_trader import MomentumTrader
+from simulation.agents.noise_trader import NoiseTrader
+from simulation.market.latency_model import (LatencyConfig, LatencyModel,
+                                             latency_arb_latency,
+                                             market_maker_latency,
+                                             retail_latency)
+from simulation.market.price_process import (GBMProcess, HawkesProcess,
+                                             OUProcess, RegimeSwitchingProcess)
+from simulation.market.tcp_client import BookUpdateMsg, TcpClient
+from simulation.metrics import FillRecord, MetricsEngine, QuoteRecord
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 log = logging.getLogger("simulator")
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # Event System
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class EventType(IntEnum):
     MIDPRICE_MOVE = 0
@@ -67,6 +65,7 @@ class EventType(IntEnum):
 @dataclass(order=True)
 class Event:
     """A timestamped simulation event."""
+
     timestamp: float
     event_type: EventType = field(compare=False)
     agent_id: Optional[str] = field(default=None, compare=False)
@@ -95,6 +94,7 @@ class EventQueue:
 # ═══════════════════════════════════════════════════════════════════════
 # Simulator
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class Simulator:
     """
@@ -148,14 +148,14 @@ class Simulator:
                 initial_price=initial,
                 mu=pp_config.get("mu", 0.0),
                 sigma=pp_config.get("sigma", 0.005),
-                seed=pp_config.get("seed", 42)
+                seed=pp_config.get("seed", 42),
             )
         elif pp_type == "regime_switching":
             return RegimeSwitchingProcess(
                 initial_price=initial,
                 kappa=pp_config.get("kappa", 0.3),
                 theta=pp_config.get("theta", initial),
-                seed=pp_config.get("seed", 42)
+                seed=pp_config.get("seed", 42),
             )
         else:  # Default: OU
             return OUProcess(
@@ -163,7 +163,7 @@ class Simulator:
                 kappa=pp_config.get("kappa", 0.5),
                 theta=pp_config.get("theta", initial),
                 sigma=pp_config.get("sigma", 50.0),
-                seed=pp_config.get("seed", 42)
+                seed=pp_config.get("seed", 42),
             )
 
     def _create_agents(self):
@@ -248,25 +248,31 @@ class Simulator:
         for step in range(self.total_steps):
             t = step * dt
             # Schedule mid-price updates.
-            self.event_queue.push(Event(
-                timestamp=t,
-                event_type=EventType.MIDPRICE_MOVE,
-            ))
+            self.event_queue.push(
+                Event(
+                    timestamp=t,
+                    event_type=EventType.MIDPRICE_MOVE,
+                )
+            )
             # Schedule agent actions (with per-agent latency offset).
             for agent_id, agent in self.agents.items():
                 latency_s = self.agent_latencies[agent_id].sample_seconds()
-                self.event_queue.push(Event(
-                    timestamp=t + latency_s,
-                    event_type=EventType.AGENT_ACTION,
-                    agent_id=agent_id,
-                ))
+                self.event_queue.push(
+                    Event(
+                        timestamp=t + latency_s,
+                        event_type=EventType.AGENT_ACTION,
+                        agent_id=agent_id,
+                    )
+                )
 
             # Metrics sampling every 100 steps.
             if step % 100 == 0:
-                self.event_queue.push(Event(
-                    timestamp=t + dt * 0.5,  # Half-step for metrics
-                    event_type=EventType.METRICS_SAMPLE,
-                ))
+                self.event_queue.push(
+                    Event(
+                        timestamp=t + dt * 0.5,  # Half-step for metrics
+                        event_type=EventType.METRICS_SAMPLE,
+                    )
+                )
 
     def _process_event(self, event: Event):
         """Process a single event from the queue."""
@@ -277,7 +283,7 @@ class Simulator:
 
             # Update informed agents with true price.
             for agent in self.agents.values():
-                if hasattr(agent, 'set_true_price'):
+                if hasattr(agent, "set_true_price"):
                     agent.set_true_price(self.current_mid)
 
             # Hawkes-driven additional order flow.
@@ -287,14 +293,16 @@ class Simulator:
                 )
                 # Extra events manifest as noise trader actions.
                 for _ in range(n_extra):
-                    noise_id = f"NOISE_0"
+                    noise_id = "NOISE_0"
                     if noise_id in self.agents:
                         latency_s = self.agent_latencies[noise_id].sample_seconds()
-                        self.event_queue.push(Event(
-                            timestamp=event.timestamp + latency_s,
-                            event_type=EventType.AGENT_ACTION,
-                            agent_id=noise_id,
-                        ))
+                        self.event_queue.push(
+                            Event(
+                                timestamp=event.timestamp + latency_s,
+                                event_type=EventType.AGENT_ACTION,
+                                agent_id=noise_id,
+                            )
+                        )
 
         elif event.event_type == EventType.AGENT_ACTION:
             if self.last_book_update is None:
@@ -330,10 +338,12 @@ class Simulator:
                     price=order.price,
                     quantity=order.quantity,
                 )
-                self.metrics.record_quote(QuoteRecord(
-                    order_id=order.order_id,
-                    timestamp=self.current_time,
-                ))
+                self.metrics.record_quote(
+                    QuoteRecord(
+                        order_id=order.order_id,
+                        timestamp=self.current_time,
+                    )
+                )
             except Exception as e:
                 log.warning(f"Failed to send order: {e}")
 
@@ -343,26 +353,35 @@ class Simulator:
             for msg in messages:
                 if isinstance(msg, BookUpdateMsg):
                     self.last_book_update = msg
-                elif hasattr(msg, 'maker_id'):
+                elif hasattr(msg, "maker_id"):
                     # Fill message — update all agents.
                     for agent in self.agents.values():
                         agent.on_fill(msg)
 
                     # Record fill for metrics.
-                    mid_after = (self.last_book_update.best_bid + self.last_book_update.best_ask) // 2 \
-                        if self.last_book_update else self.current_mid
+                    mid_after = (
+                        (
+                            self.last_book_update.best_bid
+                            + self.last_book_update.best_ask
+                        )
+                        // 2
+                        if self.last_book_update
+                        else self.current_mid
+                    )
 
-                    self.metrics.record_fill(FillRecord(
-                        timestamp=self.current_time,
-                        price=msg.price,
-                        quantity=msg.quantity,
-                        side=0,  # Simplified
-                        is_maker=True,
-                        mid_at_fill=self.current_mid,
-                        mid_after_fill=mid_after,
-                        maker_fee=getattr(msg, 'maker_fee', 0.0),
-                        taker_fee=getattr(msg, 'taker_fee', 0.0),
-                    ))
+                    self.metrics.record_fill(
+                        FillRecord(
+                            timestamp=self.current_time,
+                            price=msg.price,
+                            quantity=msg.quantity,
+                            side=0,  # Simplified
+                            is_maker=True,
+                            mid_at_fill=self.current_mid,
+                            mid_after_fill=mid_after,
+                            maker_fee=getattr(msg, "maker_fee", 0.0),
+                            taker_fee=getattr(msg, "taker_fee", 0.0),
+                        )
+                    )
         except Exception as e:
             log.warning(f"Failed to receive messages: {e}")
 
@@ -384,7 +403,9 @@ class Simulator:
                 alpha=of_cfg.get("hawkes_alpha", 0.6),
                 beta=of_cfg.get("hawkes_beta", 1.5),
             )
-            log.info(f"Hawkes order flow enabled (branching ratio: {self.hawkes.branching_ratio:.2f})")
+            log.info(
+                f"Hawkes order flow enabled (branching ratio: {self.hawkes.branching_ratio:.2f})"
+            )
 
         # Connect to engine.
         engine_cfg = self.config.get("engine", {})
@@ -414,7 +435,9 @@ class Simulator:
 
         # Schedule all events.
         self._schedule_initial_events()
-        log.info(f"Scheduled {len(self.event_queue)} events for {self.total_steps} steps")
+        log.info(
+            f"Scheduled {len(self.event_queue)} events for {self.total_steps} steps"
+        )
 
         # Main event loop.
         self.running = True
@@ -431,12 +454,16 @@ class Simulator:
             if events_processed % 10000 == 0:
                 elapsed = time.time() - start_time
                 rate = events_processed / max(elapsed, 0.001)
-                log.info(f"  Step {self.step_count}/{self.total_steps} "
-                         f"| {events_processed} events | {rate:.0f} events/sec")
+                log.info(
+                    f"  Step {self.step_count}/{self.total_steps} "
+                    f"| {events_processed} events | {rate:.0f} events/sec"
+                )
 
         elapsed = time.time() - start_time
-        log.info(f"\nSimulation complete: {events_processed} events in {elapsed:.2f}s "
-                 f"({events_processed / max(elapsed, 0.001):.0f} events/sec)")
+        log.info(
+            f"\nSimulation complete: {events_processed} events in {elapsed:.2f}s "
+            f"({events_processed / max(elapsed, 0.001):.0f} events/sec)"
+        )
 
         # Print metrics report.
         self.metrics.print_report()
@@ -445,8 +472,10 @@ class Simulator:
         log.info("\nPer-Agent Statistics:")
         for agent_id, agent in self.agents.items():
             s = agent.stats
-            log.info(f"  {agent_id:12s} | PnL: {s.pnl:8.0f} | Inv: {s.inventory:5d} "
-                     f"| Fills: {s.total_fills:4d} | Orders: {s.total_orders:4d}")
+            log.info(
+                f"  {agent_id:12s} | PnL: {s.pnl:8.0f} | Inv: {s.inventory:5d} "
+                f"| Fills: {s.total_fills:4d} | Orders: {s.total_orders:4d}"
+            )
 
         # Cleanup.
         if self.tcp_client:
@@ -460,9 +489,11 @@ class Simulator:
 def main():
     """Entry point."""
     import argparse
+
     parser = argparse.ArgumentParser(description="Liquidity Arena Simulator")
-    parser.add_argument("--config", default="simulation/config/default.yaml",
-                        help="Path to config YAML")
+    parser.add_argument(
+        "--config", default="simulation/config/default.yaml", help="Path to config YAML"
+    )
     args = parser.parse_args()
 
     sim = Simulator(config_path=args.config)
@@ -471,6 +502,7 @@ def main():
     def signal_handler(sig, frame):
         log.info("\nShutting down...")
         sim.stop()
+
     signal.signal(signal.SIGINT, signal_handler)
 
     sim.run()

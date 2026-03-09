@@ -21,9 +21,11 @@ Where:
   κ   = order arrival intensity
 """
 
-import numpy as np
 from typing import List
-from simulation.agents.base_agent import BaseAgent, AgentOrder
+
+import numpy as np
+
+from simulation.agents.base_agent import AgentOrder, BaseAgent
 from simulation.market.tcp_client import BookUpdateMsg
 
 
@@ -39,16 +41,20 @@ class AvellanedaStoikovMM(BaseAgent):
     - PnL decomposition: spread capture vs adverse selection
     """
 
-    def __init__(self, agent_id: str = "MM",
-                 gamma: float = 0.01,
-                 kappa: float = 1.5,
-                 max_inventory: int = 100,
-                 num_levels: int = 3,
-                 level_spacing: int = 2,
-                 base_quantity: int = 50,
-                 sigma_window: int = 100,
-                 total_steps: int = 10000,
-                 seed: int = 42, **kwargs):
+    def __init__(
+        self,
+        agent_id: str = "MM",
+        gamma: float = 0.01,
+        kappa: float = 1.5,
+        max_inventory: int = 100,
+        num_levels: int = 3,
+        level_spacing: int = 2,
+        base_quantity: int = 50,
+        sigma_window: int = 100,
+        total_steps: int = 10000,
+        seed: int = 42,
+        **kwargs,
+    ):
         super().__init__(agent_id, **kwargs)
         self.gamma = gamma
         self.kappa = kappa
@@ -78,10 +84,12 @@ class AvellanedaStoikovMM(BaseAgent):
 
         # Keep only the rolling window.
         if len(self._mid_history) > self._sigma_window:
-            self._mid_history = self._mid_history[-self._sigma_window:]
+            self._mid_history = self._mid_history[-self._sigma_window :]
 
         # Compute variance of price changes (not log returns, since ticks).
-        changes = np.diff(self._mid_history[-min(len(self._mid_history), self._sigma_window):])
+        changes = np.diff(
+            self._mid_history[-min(len(self._mid_history), self._sigma_window) :]
+        )
         if len(changes) > 1:
             self._sigma_sq = float(np.var(changes)) + 1e-6  # Floor to avoid zero
         return self._sigma_sq
@@ -108,8 +116,9 @@ class AvellanedaStoikovMM(BaseAgent):
 
         # ── Step 4: Optimal spread (A-S Eq. 12) ─────────────────────
         # δ = γ·σ²·(T-t) + (2/γ)·ln(1 + γ/κ)
-        delta = (self.gamma * sigma_sq * T_minus_t
-                 + (2.0 / self.gamma) * np.log(1 + self.gamma / self.kappa))
+        delta = self.gamma * sigma_sq * T_minus_t + (2.0 / self.gamma) * np.log(
+            1 + self.gamma / self.kappa
+        )
 
         # Minimum spread: at least 2 ticks.
         delta = max(delta, 2.0)
@@ -119,7 +128,7 @@ class AvellanedaStoikovMM(BaseAgent):
         ask_price = int(round(reservation + delta / 2))
 
         # ── Step 6: Inventory limits ─────────────────────────────────
-        can_buy  = q < self.max_inventory
+        can_buy = q < self.max_inventory
         can_sell = q > -self.max_inventory
 
         # ── Step 7: Quantity scaling (reduce near inventory limits) ──
@@ -138,7 +147,7 @@ class AvellanedaStoikovMM(BaseAgent):
                     side=0,  # BID
                     order_type=0,  # LIMIT
                     price=bid_price - offset,
-                    quantity=level_qty
+                    quantity=level_qty,
                 )
                 orders_to_send.append(order)
                 self.track_order(order)
@@ -149,22 +158,24 @@ class AvellanedaStoikovMM(BaseAgent):
                     side=1,  # ASK
                     order_type=0,  # LIMIT
                     price=ask_price + offset,
-                    quantity=level_qty
+                    quantity=level_qty,
                 )
                 orders_to_send.append(order)
                 self.track_order(order)
 
         # ── Record for analytics ─────────────────────────────────────
-        self.quote_history.append({
-            'step': step,
-            'mid': mid,
-            'reservation': reservation,
-            'spread': delta,
-            'bid': bid_price,
-            'ask': ask_price,
-            'inventory': q,
-            'sigma_sq': sigma_sq,
-            'pnl': self.stats.total_pnl,
-        })
+        self.quote_history.append(
+            {
+                "step": step,
+                "mid": mid,
+                "reservation": reservation,
+                "spread": delta,
+                "bid": bid_price,
+                "ask": ask_price,
+                "inventory": q,
+                "sigma_sq": sigma_sq,
+                "pnl": self.stats.total_pnl,
+            }
+        )
 
         return orders_to_send

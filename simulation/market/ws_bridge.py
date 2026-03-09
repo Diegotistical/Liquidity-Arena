@@ -7,12 +7,12 @@ Also serves the frontend/ directory as static files.
 """
 
 import asyncio
-import json
-import threading
 import http.server
 import socketserver
+import threading
 from pathlib import Path
 from typing import Set
+
 import websockets
 
 
@@ -22,8 +22,9 @@ class WebSocketBridge:
     Also serves the frontend static files via a simple HTTP server.
     """
 
-    def __init__(self, ws_port: int = 8765, http_port: int = 8080,
-                 frontend_dir: str = "frontend"):
+    def __init__(
+        self, ws_port: int = 8765, http_port: int = 8080, frontend_dir: str = "frontend"
+    ):
         self.ws_port = ws_port
         self.http_port = http_port
         self.frontend_dir = Path(frontend_dir).resolve()
@@ -49,16 +50,14 @@ class WebSocketBridge:
     def push(self, data: str):
         """Push data to all connected WebSocket clients (thread-safe)."""
         if self._loop is not None:
-            asyncio.run_coroutine_threadsafe(
-                self._message_queue.put(data), self._loop
-            )
+            asyncio.run_coroutine_threadsafe(self._message_queue.put(data), self._loop)
 
     def _run_http(self):
         """Run a simple HTTP server for the frontend."""
         import functools
+
         handler = functools.partial(
-            http.server.SimpleHTTPRequestHandler,
-            directory=str(self.frontend_dir)
+            http.server.SimpleHTTPRequestHandler, directory=str(self.frontend_dir)
         )
         with socketserver.TCPServer(("", self.http_port), handler) as httpd:
             httpd.serve_forever()
@@ -78,7 +77,7 @@ class WebSocketBridge:
                 if self._clients:
                     await asyncio.gather(
                         *[client.send(data) for client in self._clients],
-                        return_exceptions=True
+                        return_exceptions=True,
                     )
 
     async def _ws_handler(self, websocket):

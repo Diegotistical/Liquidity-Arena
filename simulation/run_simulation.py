@@ -8,20 +8,20 @@ Usage:
 """
 
 import logging
-import sys
 import os
+import sys
 
 # Add project root to path.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from simulation.simulator import Simulator
-from simulation.market.ws_bridge import WebSocketBridge
+from simulation.market.ws_bridge import WebSocketBridge  # noqa: E402
+from simulation.simulator import Simulator  # noqa: E402
 
 # Configure logging.
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-    datefmt='%H:%M:%S',
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
 )
 log = logging.getLogger(__name__)
 
@@ -52,5 +52,5 @@ def main():
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
