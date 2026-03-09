@@ -10,9 +10,9 @@ Uses Python's struct module for zero-dependency binary packing.
 
 import socket
 import struct
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Callable, Optional
 
 
 class MsgType(IntEnum):
@@ -125,10 +125,10 @@ class TcpClient:
     def __init__(self, host: str = "127.0.0.1", port: int = 9876):
         self.host = host
         self.port = port
-        self.sock: Optional[socket.socket] = None
+        self.sock: socket.socket | None = None
         self._recv_buffer = bytearray()
-        self._on_fill: Optional[Callable] = None
-        self._on_book_update: Optional[Callable] = None
+        self._on_fill: Callable | None = None
+        self._on_book_update: Callable | None = None
 
     def connect(self):
         """Connect to the engine."""

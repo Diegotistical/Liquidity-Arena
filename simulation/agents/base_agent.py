@@ -9,7 +9,6 @@ Each agent:
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List
 
 from simulation.market.tcp_client import BookUpdateMsg, FillMsg
 
@@ -62,7 +61,7 @@ class BaseAgent(ABC):
         return oid
 
     @abstractmethod
-    def on_book_update(self, update: BookUpdateMsg, step: int) -> List[AgentOrder]:
+    def on_book_update(self, update: BookUpdateMsg, step: int) -> list[AgentOrder]:
         """
         React to a book update. Returns a list of orders to send.
         This is the main decision function — called every simulation step.
@@ -78,7 +77,6 @@ class BaseAgent(ABC):
         if order.side == 1:  # ASK — we sold
             qty = -qty
 
-        self.stats.inventory
         self.stats.inventory += qty
         self.stats.total_fills += 1
         self.stats.total_volume += abs(fill.quantity)
@@ -105,7 +103,7 @@ class BaseAgent(ABC):
         """Register an active order."""
         self._active_orders[order.order_id] = order
 
-    def cancel_all(self) -> List[int]:
+    def cancel_all(self) -> list[int]:
         """Return IDs of all active orders to cancel."""
         ids = list(self._active_orders.keys())
         self._active_orders.clear()

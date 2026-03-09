@@ -5,7 +5,6 @@ Places random limit orders around the midprice and occasional market orders.
 Provides liquidity and creates realistic background noise for the simulation.
 """
 
-from typing import List
 
 import numpy as np
 
@@ -43,7 +42,7 @@ class NoiseTrader(BaseAgent):
         self.market_order_prob = market_order_prob
         self.rng = np.random.default_rng(seed)
 
-    def on_book_update(self, update: BookUpdateMsg, step: int) -> List[AgentOrder]:
+    def on_book_update(self, update: BookUpdateMsg, step: int) -> list[AgentOrder]:
         orders = []
 
         # Need a valid midprice.
@@ -74,10 +73,7 @@ class NoiseTrader(BaseAgent):
 
         # Limit order: random offset from mid.
         offset = int(self.rng.integers(1, self.spread_range + 1))
-        if side == 0:  # BID
-            price = mid - offset
-        else:  # ASK
-            price = mid + offset
+        price = mid - offset if side == 0 else mid + offset
 
         order = AgentOrder(
             order_id=self.next_order_id(),

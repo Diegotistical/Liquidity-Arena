@@ -22,7 +22,6 @@ Why this matters:
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Optional
 
 import numpy as np
 
@@ -69,14 +68,14 @@ class GBMProcess(PriceProcess):
         prices = np.zeros(num_steps, dtype=np.int64)
         s = float(self.initial_price)
         for i in range(num_steps):
-            dW = self.rng.normal(0, np.sqrt(self.dt))
-            s *= 1 + self.mu * self.dt + self.sigma * dW
+            dw = self.rng.normal(0, np.sqrt(self.dt))
+            s *= 1 + self.mu * self.dt + self.sigma * dw
             prices[i] = int(round(s))
         return prices
 
     def step(self) -> int:
-        dW = self.rng.normal(0, np.sqrt(self.dt))
-        self.current_price *= 1 + self.mu * self.dt + self.sigma * dW
+        dw = self.rng.normal(0, np.sqrt(self.dt))
+        self.current_price *= 1 + self.mu * self.dt + self.sigma * dw
         return int(round(self.current_price))
 
 
@@ -110,15 +109,15 @@ class OUProcess(PriceProcess):
         prices = np.zeros(num_steps, dtype=np.int64)
         s = float(self.initial_price)
         for i in range(num_steps):
-            dW = self.rng.normal(0, np.sqrt(self.dt))
-            s += self.kappa * (self.theta - s) * self.dt + self.sigma * dW
+            dw = self.rng.normal(0, np.sqrt(self.dt))
+            s += self.kappa * (self.theta - s) * self.dt + self.sigma * dw
             prices[i] = int(round(s))
         return prices
 
     def step(self) -> int:
-        dW = self.rng.normal(0, np.sqrt(self.dt))
+        dw = self.rng.normal(0, np.sqrt(self.dt))
         self.current_price += (
-            self.kappa * (self.theta - self.current_price) * self.dt + self.sigma * dW
+            self.kappa * (self.theta - self.current_price) * self.dt + self.sigma * dw
         )
         return int(round(self.current_price))
 
@@ -182,7 +181,7 @@ class RegimeSwitchingProcess(PriceProcess):
         initial_price: int = 10000,
         kappa: float = 0.3,
         theta: int = 10000,
-        regimes: Optional[dict] = None,
+        regimes: dict | None = None,
         dt: float = 0.001,
         seed: int = 42,
     ):
@@ -219,9 +218,9 @@ class RegimeSwitchingProcess(PriceProcess):
     def step(self) -> int:
         self._maybe_switch_regime()
         sigma = self.regimes[self.current_regime].sigma
-        dW = self.rng.normal(0, np.sqrt(self.dt))
+        dw = self.rng.normal(0, np.sqrt(self.dt))
         self.current_price += (
-            self.kappa * (self.theta - self.current_price) * self.dt + sigma * dW
+            self.kappa * (self.theta - self.current_price) * self.dt + sigma * dw
         )
         return int(round(self.current_price))
 

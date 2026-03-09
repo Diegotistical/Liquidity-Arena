@@ -6,7 +6,6 @@ directional market orders. Creates autocorrelated order flow
 that the market maker must handle.
 """
 
-from typing import List
 
 import numpy as np
 
@@ -47,7 +46,7 @@ class MomentumTrader(BaseAgent):
         self._slow_ema: float = 0.0
         self._initialized = False
 
-    def on_book_update(self, update: BookUpdateMsg, step: int) -> List[AgentOrder]:
+    def on_book_update(self, update: BookUpdateMsg, step: int) -> list[AgentOrder]:
         orders = []
 
         if update.best_bid <= 0 or update.best_ask <= 0:

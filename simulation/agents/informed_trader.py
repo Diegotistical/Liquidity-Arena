@@ -10,7 +10,6 @@ that the market maker must manage. This dynamic is central to
 Avellaneda-Stoikov's analysis of optimal market making.
 """
 
-from typing import List
 
 import numpy as np
 
@@ -50,7 +49,7 @@ class InformedTrader(BaseAgent):
         """Called by the simulator each step with the hidden true price."""
         self._true_price = price
 
-    def on_book_update(self, update: BookUpdateMsg, step: int) -> List[AgentOrder]:
+    def on_book_update(self, update: BookUpdateMsg, step: int) -> list[AgentOrder]:
         orders = []
 
         if update.best_bid <= 0 or update.best_ask <= 0:

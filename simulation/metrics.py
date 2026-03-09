@@ -14,7 +14,6 @@ actually care about. These go far beyond basic PnL:
 """
 
 from dataclasses import dataclass
-from typing import List, Optional
 
 import numpy as np
 
@@ -29,7 +28,7 @@ class FillRecord:
     side: int  # 0=BID, 1=ASK
     is_maker: bool
     mid_at_fill: int
-    mid_after_fill: Optional[int] = None  # Set retrospectively
+    mid_after_fill: int | None = None  # Set retrospectively
     maker_fee: float = 0.0
     taker_fee: float = 0.0
 
@@ -40,7 +39,7 @@ class QuoteRecord:
 
     order_id: int
     timestamp: float
-    cancel_timestamp: Optional[float] = None
+    cancel_timestamp: float | None = None
     was_filled: bool = False
 
 
@@ -81,11 +80,11 @@ class MetricsEngine:
         self.lookback = lookback_window
 
         # State tracking.
-        self._fills: List[FillRecord] = []
-        self._quotes: List[QuoteRecord] = []
-        self._inventory_history: List[int] = []
-        self._pnl_history: List[float] = []
-        self._mid_history: List[int] = []
+        self._fills: list[FillRecord] = []
+        self._quotes: list[QuoteRecord] = []
+        self._inventory_history: list[int] = []
+        self._pnl_history: list[float] = []
+        self._mid_history: list[int] = []
 
         # Running counters.
         self._total_orders_sent: int = 0

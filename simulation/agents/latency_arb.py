@@ -23,7 +23,6 @@ for market makers. Their presence forces MMs to widen spreads and cancel
 faster.
 """
 
-from typing import List
 
 import numpy as np
 
@@ -67,7 +66,7 @@ class LatencyArb(BaseAgent):
         """Called by the simulator each step with the true price signal."""
         self._true_price = price
 
-    def on_book_update(self, update: BookUpdateMsg, step: int) -> List[AgentOrder]:
+    def on_book_update(self, update: BookUpdateMsg, step: int) -> list[AgentOrder]:
         orders = []
 
         if update.best_bid <= 0 or update.best_ask <= 0:
@@ -79,62 +78,68 @@ class LatencyArb(BaseAgent):
         mid = (update.best_bid + update.best_ask) // 2
 
         # Ask is too low relative to true price → buy (pick off ask).
-        if (self._true_price - update.best_ask) > self.threshold:
-            if self.stats.inventory < self.max_position:
-                if self.rng.random() < self.trade_prob:
-                    qty = int(self.rng.integers(self.min_qty, self.max_qty + 1))
-                    # Limit qty to not exceed position limit.
-                    qty = min(qty, self.max_position - self.stats.inventory)
-                    if qty > 0:
-                        order = AgentOrder(
-                            order_id=self.next_order_id(),
-                            side=0,  # BID
-                            order_type=1,  # MARKET
-                            price=0,
-                            quantity=qty,
-                        )
-                        orders.append(order)
-                        self.track_order(order)
-
-        # Bid is too high relative to true price → sell (pick off bid).
-        elif (update.best_bid - self._true_price) > self.threshold:
-            if self.stats.inventory > -self.max_position:
-                if self.rng.random() < self.trade_prob:
-                    qty = int(self.rng.integers(self.min_qty, self.max_qty + 1))
-                    qty = min(qty, self.max_position + self.stats.inventory)
-                    if qty > 0:
-                        order = AgentOrder(
-                            order_id=self.next_order_id(),
-                            side=1,  # ASK
-                            order_type=1,  # MARKET
-                            price=0,
-                            quantity=qty,
-                        )
-                        orders.append(order)
-                        self.track_order(order)
-
-        # Inventory flattening: if we have inventory, try to reduce it.
-        elif abs(self.stats.inventory) > self.max_position // 2:
-            if self.rng.random() < 0.3:
-                if self.stats.inventory > 0:
-                    qty = min(self.stats.inventory, self.max_qty)
-                    order = AgentOrder(
-                        order_id=self.next_order_id(),
-                        side=1,  # ASK — sell to flatten
-                        order_type=0,  # LIMIT — passive to reduce cost
-                        price=mid + 1,
-                        quantity=qty,
-                    )
-                else:
-                    qty = min(-self.stats.inventory, self.max_qty)
-                    order = AgentOrder(
-                        order_id=self.next_order_id(),
-                        side=0,  # BID — buy to flatten
-                        order_type=0,  # LIMIT
-                        price=mid - 1,
-                        quantity=qty,
-                    )
+        if (
+            (self._true_price - update.best_ask) > self.threshold
+            and self.stats.inventory < self.max_position
+            and self.rng.random() < self.trade_prob
+        ):
+            qty = int(self.rng.integers(self.min_qty, self.max_qty + 1))
+            # Limit qty to not exceed position limit.
+            qty = min(qty, self.max_position - self.stats.inventory)
+            if qty > 0:
+                order = AgentOrder(
+                    order_id=self.next_order_id(),
+                    side=0,  # BID
+                    order_type=1,  # MARKET
+                    price=0,
+                    quantity=qty,
+                )
                 orders.append(order)
                 self.track_order(order)
+
+        # Bid is too high relative to true price → sell (pick off bid).
+        elif (
+            (update.best_bid - self._true_price) > self.threshold
+            and self.stats.inventory > -self.max_position
+            and self.rng.random() < self.trade_prob
+        ):
+            qty = int(self.rng.integers(self.min_qty, self.max_qty + 1))
+            qty = min(qty, self.max_position + self.stats.inventory)
+            if qty > 0:
+                order = AgentOrder(
+                    order_id=self.next_order_id(),
+                    side=1,  # ASK
+                    order_type=1,  # MARKET
+                    price=0,
+                    quantity=qty,
+                )
+                orders.append(order)
+                self.track_order(order)
+
+        # Inventory flattening: if we have inventory, try to reduce it.
+        elif (
+            abs(self.stats.inventory) > self.max_position // 2
+            and self.rng.random() < 0.3
+        ):
+            if self.stats.inventory > 0:
+                qty = min(self.stats.inventory, self.max_qty)
+                order = AgentOrder(
+                    order_id=self.next_order_id(),
+                    side=1,  # ASK — sell to flatten
+                    order_type=0,  # LIMIT — passive to reduce cost
+                    price=mid + 1,
+                    quantity=qty,
+                )
+            else:
+                qty = min(-self.stats.inventory, self.max_qty)
+                order = AgentOrder(
+                    order_id=self.next_order_id(),
+                    side=0,  # BID — buy to flatten
+                    order_type=0,  # LIMIT
+                    price=mid - 1,
+                    quantity=qty,
+                )
+            orders.append(order)
+            self.track_order(order)
 
         return orders

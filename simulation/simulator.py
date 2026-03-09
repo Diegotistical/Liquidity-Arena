@@ -24,7 +24,7 @@ import signal
 import time
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -34,12 +34,19 @@ from simulation.agents.latency_arb import LatencyArb
 from simulation.agents.market_maker import AvellanedaStoikovMM
 from simulation.agents.momentum_trader import MomentumTrader
 from simulation.agents.noise_trader import NoiseTrader
-from simulation.market.latency_model import (LatencyConfig, LatencyModel,
-                                             latency_arb_latency,
-                                             market_maker_latency,
-                                             retail_latency)
-from simulation.market.price_process import (GBMProcess, HawkesProcess,
-                                             OUProcess, RegimeSwitchingProcess)
+from simulation.market.latency_model import (
+    LatencyConfig,
+    LatencyModel,
+    latency_arb_latency,
+    market_maker_latency,
+    retail_latency,
+)
+from simulation.market.price_process import (
+    GBMProcess,
+    HawkesProcess,
+    OUProcess,
+    RegimeSwitchingProcess,
+)
 from simulation.market.tcp_client import BookUpdateMsg, TcpClient
 from simulation.metrics import FillRecord, MetricsEngine, QuoteRecord
 
@@ -68,7 +75,7 @@ class Event:
 
     timestamp: float
     event_type: EventType = field(compare=False)
-    agent_id: Optional[str] = field(default=None, compare=False)
+    agent_id: str | None = field(default=None, compare=False)
     data: Any = field(default=None, compare=False)
 
 
@@ -116,9 +123,9 @@ class Simulator:
 
         # Core components.
         self.event_queue = EventQueue()
-        self.tcp_client: Optional[TcpClient] = None
+        self.tcp_client: TcpClient | None = None
         self.price_process = self._create_price_process()
-        self.hawkes: Optional[HawkesProcess] = None
+        self.hawkes: HawkesProcess | None = None
         self.metrics = MetricsEngine()
 
         # Agents.
@@ -127,7 +134,7 @@ class Simulator:
 
         # State.
         self.current_mid: int = self.config["price_process"]["initial_price"]
-        self.last_book_update: Optional[BookUpdateMsg] = None
+        self.last_book_update: BookUpdateMsg | None = None
         self.step_count: int = 0
         self.total_steps: int = self.config["simulation"]["steps"]
 
@@ -135,7 +142,7 @@ class Simulator:
         self._pending_cancels: dict[int, float] = {}  # order_id → scheduled cancel time
 
     def _load_config(self, path: str) -> dict:
-        with open(path, "r") as f:
+        with open(path) as f:
             return yaml.safe_load(f)
 
     def _create_price_process(self):
@@ -255,7 +262,7 @@ class Simulator:
                 )
             )
             # Schedule agent actions (with per-agent latency offset).
-            for agent_id, agent in self.agents.items():
+            for agent_id, _agent in self.agents.items():
                 latency_s = self.agent_latencies[agent_id].sample_seconds()
                 self.event_queue.push(
                     Event(

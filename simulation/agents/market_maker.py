@@ -21,7 +21,6 @@ Where:
   κ   = order arrival intensity
 """
 
-from typing import List
 
 import numpy as np
 
@@ -94,7 +93,7 @@ class AvellanedaStoikovMM(BaseAgent):
             self._sigma_sq = float(np.var(changes)) + 1e-6  # Floor to avoid zero
         return self._sigma_sq
 
-    def on_book_update(self, update: BookUpdateMsg, step: int) -> List[AgentOrder]:
+    def on_book_update(self, update: BookUpdateMsg, step: int) -> list[AgentOrder]:
         orders_to_send = []
 
         if update.best_bid <= 0 or update.best_ask <= 0:
@@ -107,16 +106,16 @@ class AvellanedaStoikovMM(BaseAgent):
         sigma_sq = self._estimate_sigma_sq(mid)
 
         # ── Step 2: Compute time remaining (normalized to [0, 1]) ────
-        T_minus_t = max(0.001, 1.0 - step / self.total_steps)
+        t_minus_t = max(0.001, 1.0 - step / self.total_steps)
 
         # ── Step 3: Reservation price (A-S Eq. 10) ──────────────────
         # r = s - q·γ·σ²·(T-t)
         q = self.stats.inventory
-        reservation = mid - q * self.gamma * sigma_sq * T_minus_t
+        reservation = mid - q * self.gamma * sigma_sq * t_minus_t
 
         # ── Step 4: Optimal spread (A-S Eq. 12) ─────────────────────
         # δ = γ·σ²·(T-t) + (2/γ)·ln(1 + γ/κ)
-        delta = self.gamma * sigma_sq * T_minus_t + (2.0 / self.gamma) * np.log(
+        delta = self.gamma * sigma_sq * t_minus_t + (2.0 / self.gamma) * np.log(
             1 + self.gamma / self.kappa
         )
 

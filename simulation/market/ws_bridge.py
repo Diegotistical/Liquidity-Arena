@@ -11,7 +11,6 @@ import http.server
 import socketserver
 import threading
 from pathlib import Path
-from typing import Set
 
 import websockets
 
@@ -28,7 +27,7 @@ class WebSocketBridge:
         self.ws_port = ws_port
         self.http_port = http_port
         self.frontend_dir = Path(frontend_dir).resolve()
-        self._clients: Set = set()
+        self._clients: set = set()
         self._message_queue: asyncio.Queue = asyncio.Queue()
         self._loop: asyncio.AbstractEventLoop = None
         self._ws_thread: threading.Thread = None
