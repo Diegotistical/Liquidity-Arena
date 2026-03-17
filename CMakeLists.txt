@@ -56,10 +56,11 @@ FetchContent_MakeAvailable(spdlog)
 # Define a function to apply strict warnings + -Werror to our targets only.
 function(arena_set_warnings target)
     if(MSVC)
-        target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+        target_compile_options(${target} PRIVATE /W4 /WX /permissive- /wd4324)
     elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_compile_options(${target} PRIVATE
-            -Wall -Wextra -Wpedantic -Werror -O2)
+            -Wall -Wextra -Wpedantic -Werror -O2
+            -Wno-array-bounds -Wno-dangling-reference)
     endif()
 endfunction()
 

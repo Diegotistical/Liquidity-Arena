@@ -269,7 +269,7 @@ class HawkesProcess:
     ):
         assert (
             alpha / beta < 1.0
-        ), f"α/β must be < 1 for stationarity (got {alpha/beta:.2f})"
+        ), f"α/β must be < 1 for stationarity (got {alpha / beta:.2f})"
         self.mu = mu
         self.alpha = alpha
         self.beta = beta

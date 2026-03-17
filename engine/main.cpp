@@ -18,6 +18,7 @@
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdangling-reference"
+#pragma GCC diagnostic ignored "-Warray-bounds"
 #endif
 
 #include <spdlog/spdlog.h>

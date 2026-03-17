@@ -411,7 +411,7 @@ class Simulator:
         # Read back fills and book updates.
         try:
             messages = self.tcp_client.poll()
-            for msg_type, msg in messages:
+            for _msg_type, msg in messages:
                 if isinstance(msg, BookUpdateMsg):
                     self.last_book_update = msg
                 elif hasattr(msg, "maker_id"):
@@ -453,6 +453,7 @@ class Simulator:
                         for p, q in zip(
                             self.last_book_update.bid_prices,
                             self.last_book_update.bid_quantities,
+                            strict=False,
                         )
                     ],
                     "asks": [
@@ -460,6 +461,7 @@ class Simulator:
                         for p, q in zip(
                             self.last_book_update.ask_prices,
                             self.last_book_update.ask_quantities,
+                            strict=False,
                         )
                     ],
                 }

@@ -10,6 +10,20 @@
 
 ### Build the C++ Engine
 
+For the most streamlined experience, use the provided build scripts:
+
+**Linux / macOS:**
+```bash
+./build.sh
+```
+
+**Windows:**
+```bat
+.\build.bat
+```
+
+**Manual CMake Build:**
+
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
