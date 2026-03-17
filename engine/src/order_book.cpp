@@ -9,6 +9,10 @@
 namespace arena {
 
 Order *OrderBook::add_order(OrderId id, Side side, Tick price, Quantity quantity, Timestamp ts) {
+  if (order_map_.find(id) != order_map_.end()) {
+    return nullptr; // Duplicate order ID
+  }
+
   Order *order = pool_.allocate();
   if (order == nullptr) [[unlikely]] {
     return nullptr; // Pool exhausted
@@ -46,6 +50,10 @@ Order *OrderBook::add_order(OrderId id, Side side, Tick price, Quantity quantity
 
 Order *OrderBook::add_iceberg_order(OrderId id, Side side, Tick price, Quantity total_qty,
                                     Quantity display_qty, Timestamp ts) {
+  if (order_map_.find(id) != order_map_.end()) {
+    return nullptr; // Duplicate order ID
+  }
+
   Order *order = pool_.allocate();
   if (order == nullptr) [[unlikely]] {
     return nullptr;

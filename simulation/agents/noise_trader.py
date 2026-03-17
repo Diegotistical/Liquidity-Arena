@@ -5,7 +5,6 @@ Places random limit orders around the midprice and occasional market orders.
 Provides liquidity and creates realistic background noise for the simulation.
 """
 
-
 import numpy as np
 
 from simulation.agents.base_agent import AgentOrder, BaseAgent

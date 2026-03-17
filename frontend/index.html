@@ -227,6 +227,25 @@
                 </div>
             </div>
 
+            <!-- Interactive Play Panel -->
+            <div class="glass-card control-panel" id="controlPanel">
+                <div class="chart-header">
+                    <h2>Interactive Scenarios</h2>
+                    <span class="chart-badge scenario-badge">PLAY</span>
+                </div>
+                <div class="scenario-buttons">
+                    <button class="scenario-btn danger" onclick="sendScenario('flash_crash')">
+                        <span class="btn-icon">⚡</span> Flash Crash
+                    </button>
+                    <button class="scenario-btn warning" onclick="sendScenario('whale_buy')">
+                        <span class="btn-icon">🐳</span> Whale Sweep
+                    </button>
+                    <button class="scenario-btn info" onclick="sendScenario('vol_spike')">
+                        <span class="btn-icon">🌪️</span> Volatility Spike
+                    </button>
+                </div>
+            </div>
+
             <!-- Trade Tape -->
             <div class="glass-card tape-panel" id="tapePanel">
                 <div class="chart-header">

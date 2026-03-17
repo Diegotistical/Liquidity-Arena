@@ -14,6 +14,79 @@
 
 namespace arena {
 
+void MatchingEngine::start() {
+  if (engine_running_.exchange(true))
+    return; // Already running
+  engine_thread_ = std::thread([this]() {
+    while (engine_running_.load(std::memory_order_relaxed)) {
+      ClientCommand cmd;
+      if (in_queue_.pop(cmd)) {
+        process_client_command(cmd);
+      }
+    }
+  });
+}
+
+void MatchingEngine::stop() {
+  engine_running_.store(false, std::memory_order_relaxed);
+  if (engine_thread_.joinable()) {
+    engine_thread_.join();
+  }
+}
+
+void MatchingEngine::process_client_command(const ClientCommand& cmd) {
+  bool send_update = false;
+
+  switch (cmd.type) {
+  case MsgType::NEW_ORDER: {
+    process_new_order(cmd.payload.new_order.id, cmd.payload.new_order.side,
+                      cmd.payload.new_order.type, cmd.payload.new_order.price,
+                      cmd.payload.new_order.quantity, 0, cmd.payload.new_order.display_qty);
+    send_update = true;
+    break;
+  }
+  case MsgType::CANCEL_ORDER: {
+    bool ok = process_cancel(cmd.payload.cancel_order.id);
+    if (!ok) {
+      EngineEvent ev;
+      ev.type = MsgType::REJECT;
+      ev.client_idx = cmd.client_idx;
+      ev.payload.reject.id = cmd.payload.cancel_order.id;
+      ev.payload.reject.reason = RejectReason::ORDER_NOT_FOUND;
+      while (!out_queue_.push(ev) && engine_running_.load(std::memory_order_relaxed)) {}
+    } else {
+      send_update = true;
+    }
+    break;
+  }
+  case MsgType::MODIFY_ORDER: {
+    bool ok = process_modify(cmd.payload.modify_order.id, cmd.payload.modify_order.new_price,
+                             cmd.payload.modify_order.new_quantity);
+    if (!ok) {
+      EngineEvent ev;
+      ev.type = MsgType::REJECT;
+      ev.client_idx = cmd.client_idx;
+      ev.payload.reject.id = cmd.payload.modify_order.id;
+      ev.payload.reject.reason = RejectReason::INVALID_MODIFY;
+      while (!out_queue_.push(ev) && engine_running_.load(std::memory_order_relaxed)) {}
+    } else {
+      send_update = true;
+    }
+    break;
+  }
+  default:
+    break;
+  }
+
+  if (send_update) {
+    EngineEvent ev;
+    ev.type = MsgType::BOOK_UPDATE;
+    ev.client_idx = 0; // Broadcast
+    ev.payload.book_update = get_book_snapshot();
+    while (!out_queue_.push(ev) && engine_running_.load(std::memory_order_relaxed)) {}
+  }
+}
+
 Order *MatchingEngine::process_new_order(OrderId id, Side side, OrderType type, Tick price,
                                          Quantity quantity, Timestamp ts, Quantity display_qty) {
   ++total_orders_;
@@ -175,8 +248,8 @@ void MatchingEngine::execute_fill(Order *maker, Order *taker, Quantity fill_qty)
   ++total_fills_;
 
   // Compute fees.
-  double maker_fee = -fees_.maker_rebate(fill_price, fill_qty); // Negative = earned
-  double taker_fee_val = fees_.taker_fee(fill_price, fill_qty); // Positive = paid
+  int64_t maker_fee = -fees_.maker_rebate(fill_price, fill_qty); // Negative = earned
+  int64_t taker_fee_val = fees_.taker_fee(fill_price, fill_qty); // Positive = paid
   total_maker_rebates_ += (-maker_fee);
   total_taker_fees_ += taker_fee_val;
 

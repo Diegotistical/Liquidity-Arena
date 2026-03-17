@@ -6,7 +6,6 @@ directional market orders. Creates autocorrelated order flow
 that the market maker must handle.
 """
 
-
 import numpy as np
 
 from simulation.agents.base_agent import AgentOrder, BaseAgent

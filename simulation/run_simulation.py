@@ -39,7 +39,7 @@ def main():
 
     # Create and run the simulation.
     sim = Simulator(config_path)
-    sim.set_ws_callback(bridge.push)
+    sim.set_ws_bridge(bridge)
 
     try:
         results = sim.run()

@@ -44,6 +44,14 @@ set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 set(BENCHMARK_ENABLE_WERROR OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googlebenchmark)
 
+# ── Fetch spdlog ─────────────────────────────────────────────────────
+FetchContent_Declare(
+    spdlog
+    GIT_REPOSITORY https://github.com/gabime/spdlog.git
+    GIT_TAG        v1.13.0
+)
+FetchContent_MakeAvailable(spdlog)
+
 # ── Cross-platform warning flags ─────────────────────────────────────
 # Define a function to apply strict warnings + -Werror to our targets only.
 function(arena_set_warnings target)
@@ -72,7 +80,7 @@ add_executable(arena_engine
     engine/main.cpp
     engine/src/tcp_server.cpp
 )
-target_link_libraries(arena_engine PRIVATE arena_core ${PLATFORM_LIBS})
+target_link_libraries(arena_engine PRIVATE arena_core spdlog::spdlog ${PLATFORM_LIBS})
 arena_set_warnings(arena_engine)
 
 # ── Test executable ──────────────────────────────────────────────────

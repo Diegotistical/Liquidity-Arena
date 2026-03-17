@@ -5,13 +5,9 @@ test_price_process.py — Tests for price processes and Hawkes process.
 import numpy as np
 import pytest
 
-from simulation.market.price_process import (
-    GBMProcess,
-    HawkesProcess,
-    OUProcess,
-    Regime,
-    RegimeSwitchingProcess,
-)
+from simulation.market.price_process import (GBMProcess, HawkesProcess,
+                                             OUProcess, Regime,
+                                             RegimeSwitchingProcess)
 
 
 class TestGBMProcess:

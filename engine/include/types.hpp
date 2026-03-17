@@ -46,21 +46,23 @@ constexpr Tick TICK_SIZE = 1; // 1 tick = 1 cent
 constexpr Tick INVALID_PRICE = (std::numeric_limits<Tick>::min)();
 constexpr OrderId INVALID_ORDER = 0;
 
+using Fee = int64_t; // Fixed-point fee in 1/10000 ticks
+
 // ── Fee Schedule ─────────────────────────────────────────────────────
 /// Maker/taker fee model. Fees are in basis points (1 bp = 0.01%).
 /// maker_rebate is EARNED by the passive side; taker_fee is PAID by aggressor.
 struct FeeSchedule {
-  double maker_rebate_bps = 2.0; // Maker earns 0.02% per fill
-  double taker_fee_bps = 3.0;    // Taker pays 0.03% per fill
+  int64_t maker_rebate_bps = 2; // Maker earns 0.02% per fill
+  int64_t taker_fee_bps = 3;    // Taker pays 0.03% per fill
 
-  /// Compute maker rebate in ticks for a given fill.
-  [[nodiscard]] constexpr double maker_rebate(Tick price, Quantity qty) const noexcept {
-    return static_cast<double>(price) * static_cast<double>(qty) * maker_rebate_bps / 10000.0;
+  /// Compute maker rebate in Fee units (1/10000 ticks) for a given fill.
+  [[nodiscard]] constexpr Fee maker_rebate(Tick price, Quantity qty) const noexcept {
+    return price * static_cast<int64_t>(qty) * maker_rebate_bps;
   }
 
-  /// Compute taker fee in ticks for a given fill.
-  [[nodiscard]] constexpr double taker_fee(Tick price, Quantity qty) const noexcept {
-    return static_cast<double>(price) * static_cast<double>(qty) * taker_fee_bps / 10000.0;
+  /// Compute taker fee in Fee units (1/10000 ticks) for a given fill.
+  [[nodiscard]] constexpr Fee taker_fee(Tick price, Quantity qty) const noexcept {
+    return price * static_cast<int64_t>(qty) * taker_fee_bps;
   }
 };
 

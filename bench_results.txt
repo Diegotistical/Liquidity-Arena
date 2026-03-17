@@ -1,0 +1,15 @@
+2026-03-17T09:23:51+00:00
+Running .\build\arena_bench.exe
+Run on (8 X 2803 MHz CPU s)
+CPU Caches:
+  L1 Data 48 KiB (x4)
+  L1 Instruction 32 KiB (x4)
+  L2 Unified 1280 KiB (x4)
+  L3 Unified 12288 KiB (x1)
+---------------------------------------------------------------------------
+Benchmark                 Time             CPU   Iterations UserCounters...
+---------------------------------------------------------------------------
+BM_AddOrder            67.4 ns         48.8 ns     12163878 items_per_second=20.4865M/s
+BM_CancelOrder         95.6 ns         94.9 ns      5600000 items_per_second=10.5412M/s
+BM_CrossingMatch        995 ns          837 ns       896000 items_per_second=1.19467M/s
+BM_MarketOrder          876 ns          698 ns      1120000 items_per_second=1.4336M/s

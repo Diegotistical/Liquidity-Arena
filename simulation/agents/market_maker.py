@@ -21,7 +21,6 @@ Where:
   κ   = order arrival intensity
 """
 
-
 import numpy as np
 
 from simulation.agents.base_agent import AgentOrder, BaseAgent

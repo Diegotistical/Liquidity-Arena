@@ -23,7 +23,6 @@ for market makers. Their presence forces MMs to widen spreads and cancel
 faster.
 """
 
-
 import numpy as np
 
 from simulation.agents.base_agent import AgentOrder, BaseAgent

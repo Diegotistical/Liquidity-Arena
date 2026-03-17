@@ -115,10 +115,10 @@ All operations execute in **sub-microsecond** latency:
 
 | Operation | Latency | Throughput | Description |
 |-----------|---------|------------|-------------|
-| `BM_AddOrder` | **9.7 ns** | 103.8M/s | Non-crossing limit order insert |
-| `BM_CancelOrder` | **53.8 ns** | 17.9M/s | Cancel existing order by ID |
-| `BM_CrossingMatch` | **443 ns** | 2.2M/s | Limit order that crosses spread |
-| `BM_MarketOrder` | **380 ns** | 3.0M/s | Market order with single fill |
+| `BM_AddOrder` | **67.4 ns** | 20.48M/s | Non-crossing limit order insert |
+| `BM_CancelOrder` | **95.6 ns** | 10.54M/s | Cancel existing order by ID |
+| `BM_CrossingMatch` | **995 ns** | 1.19M/s | Limit order that crosses spread |
+| `BM_MarketOrder` | **876 ns** | 1.43M/s | Market order with single fill |
 
 ---
 

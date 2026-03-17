@@ -10,7 +10,6 @@ that the market maker must manage. This dynamic is central to
 Avellaneda-Stoikov's analysis of optimal market making.
 """
 
-
 import numpy as np
 
 from simulation.agents.base_agent import AgentOrder, BaseAgent

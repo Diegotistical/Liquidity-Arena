@@ -17,6 +17,19 @@
 #include <cstdint>
 #include <cstring>
 
+#ifdef _WIN32
+#include <winsock2.h>
+#else
+#include <arpa/inet.h>
+#if defined(__APPLE__) || defined(__MACH__)
+#include <libkern/OSByteOrder.h>
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#define be64toh(x) OSSwapBigToHostInt64(x)
+#else
+#include <endian.h>
+#endif
+#endif
+
 
 // ── Cross-platform struct packing ────────────────────────────────────
 // MSVC uses #pragma pack; GCC/Clang use __attribute__((packed)).
@@ -32,6 +45,27 @@
 #endif
 
 namespace arena {
+
+// ── Portable Byte-Swapping ───────────────────────────────────────────
+
+inline uint64_t htonll_portable(uint64_t value) {
+#ifdef _WIN32
+  return htonll(value);
+#else
+  return htobe64(value);
+#endif
+}
+
+inline uint64_t ntohll_portable(uint64_t value) {
+#ifdef _WIN32
+  return ntohll(value);
+#else
+  return be64toh(value);
+#endif
+}
+
+inline uint32_t htonl_portable(uint32_t value) { return htonl(value); }
+inline uint32_t ntohl_portable(uint32_t value) { return ntohl(value); }
 
 // ── Message types ────────────────────────────────────────────────────
 enum class MsgType : uint8_t {
@@ -101,8 +135,8 @@ struct FillMsg {
   OrderId taker_id;
   Tick price;
   Quantity quantity;
-  double maker_fee; // Rebate earned by maker (negative = earned)
-  double taker_fee; // Fee paid by taker (positive = paid)
+  int64_t maker_fee; // Rebate earned by maker in 1/10000 ticks (negative = earned)
+  int64_t taker_fee; // Fee paid by taker in 1/10000 ticks (positive = paid)
 } ARENA_PACKED;
 ARENA_PACK_END
 
@@ -159,5 +193,29 @@ MsgT deserialize(const uint8_t *payload) {
 
 /// Maximum possible message size (for buffer allocation).
 constexpr std::size_t MAX_MSG_SIZE = sizeof(MsgHeader) + sizeof(BookUpdateMsg);
+
+// ── Internal Queue Event Types ───────────────────────────────────────
+
+/// Command sent from I/O thread to Engine thread.
+struct ClientCommand {
+  MsgType type;
+  std::size_t client_idx;
+  union {
+    NewOrderMsg new_order;
+    CancelOrderMsg cancel_order;
+    ModifyOrderMsg modify_order;
+  } payload;
+};
+
+/// Event sent from Engine thread to I/O thread.
+struct EngineEvent {
+  MsgType type;
+  std::size_t client_idx; // Used for Reject to target a specific client.
+  union {
+    FillMsg fill;
+    RejectMsg reject;
+    BookUpdateMsg book_update;
+  } payload;
+};
 
 } // namespace arena

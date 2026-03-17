@@ -19,6 +19,7 @@ This means faster agents genuinely see stale quotes first.
 """
 
 import heapq
+import json
 import logging
 import signal
 import time
@@ -34,19 +35,12 @@ from simulation.agents.latency_arb import LatencyArb
 from simulation.agents.market_maker import AvellanedaStoikovMM
 from simulation.agents.momentum_trader import MomentumTrader
 from simulation.agents.noise_trader import NoiseTrader
-from simulation.market.latency_model import (
-    LatencyConfig,
-    LatencyModel,
-    latency_arb_latency,
-    market_maker_latency,
-    retail_latency,
-)
-from simulation.market.price_process import (
-    GBMProcess,
-    HawkesProcess,
-    OUProcess,
-    RegimeSwitchingProcess,
-)
+from simulation.market.latency_model import (LatencyConfig, LatencyModel,
+                                             latency_arb_latency,
+                                             market_maker_latency,
+                                             retail_latency)
+from simulation.market.price_process import (GBMProcess, HawkesProcess,
+                                             OUProcess, RegimeSwitchingProcess)
 from simulation.market.tcp_client import BookUpdateMsg, TcpClient
 from simulation.metrics import FillRecord, MetricsEngine, QuoteRecord
 
@@ -124,6 +118,7 @@ class Simulator:
         # Core components.
         self.event_queue = EventQueue()
         self.tcp_client: TcpClient | None = None
+        self.ws_bridge = None
         self.price_process = self._create_price_process()
         self.hawkes: HawkesProcess | None = None
         self.metrics = MetricsEngine()
@@ -142,7 +137,7 @@ class Simulator:
         self._pending_cancels: dict[int, float] = {}  # order_id → scheduled cancel time
 
     def _load_config(self, path: str) -> dict:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             return yaml.safe_load(f)
 
     def _create_price_process(self):
@@ -183,10 +178,10 @@ class Simulator:
             agent_id="MM",
             gamma=mm_cfg.get("gamma", 0.1),
             kappa=mm_cfg.get("kappa", 1.5),
-            levels=mm_cfg.get("levels", 3),
+            num_levels=mm_cfg.get("levels", 3),
             level_spacing=mm_cfg.get("level_spacing", 5),
-            base_qty=mm_cfg.get("base_qty", 100),
-            inventory_limit=mm_cfg.get("inventory_limit", 500),
+            base_quantity=mm_cfg.get("base_qty", 100),
+            max_inventory=mm_cfg.get("inventory_limit", 500),
         )
         self.agents["MM"] = mm
         self.agent_latencies["MM"] = market_maker_latency(seed=42)
@@ -247,6 +242,53 @@ class Simulator:
         )
         self.agents["LAT_ARB"] = la
         self.agent_latencies["LAT_ARB"] = latency_arb_latency(seed=300)
+
+    def set_ws_bridge(self, bridge):
+        """Set the WebSocket bridge for bidirectional frontend communication."""
+        self.ws_bridge = bridge
+
+    def _process_incoming_ws_messages(self):
+        """Poll incoming messages from the frontend and inject scenario events."""
+        if not self.ws_bridge:
+            return
+
+        msgs = self.ws_bridge.poll_incoming()
+        for raw_msg in msgs:
+            try:
+                data = json.loads(raw_msg)
+                if data.get("type") == "scenario":
+                    name = data.get("name")
+                    log.info(f"Triggering interactive scenario: {name}")
+
+                    if name == "flash_crash":
+                        # Instant 100-tick drop
+                        drop = 100
+                        self.current_mid -= drop
+                        if hasattr(self.price_process, "theta"):
+                            self.price_process.theta -= drop
+                        if hasattr(self.price_process, "current_price"):
+                            self.price_process.current_price -= drop
+
+                    elif name == "whale_buy":
+                        # Massive market buy order
+                        if self.tcp_client:
+                            self.tcp_client.send_new_order(
+                                order_id=999999,  # Magic ID for whale
+                                side=0,  # BID (buy)
+                                order_type=1,  # MARKET
+                                price=0,
+                                quantity=5000,
+                            )
+
+                    elif name == "vol_spike":
+                        # Transition to volatile regime or manually spike OU sigma
+                        if isinstance(self.price_process, RegimeSwitchingProcess):
+                            self.price_process.current_regime = 1  # Volatile state
+                        elif hasattr(self.price_process, "sigma"):
+                            self.price_process.sigma *= 3.0  # Triples volatility
+
+            except Exception as e:
+                log.warning(f"Failed to process WS message: {e}")
 
     def _schedule_initial_events(self):
         """Schedule the initial burst of events that kicks off the simulation."""
@@ -326,10 +368,22 @@ class Simulator:
             if mm:
                 self.metrics.record_state(
                     step=self.step_count,
-                    pnl=mm.stats.pnl,
+                    pnl=mm.stats.total_pnl,
                     inventory=mm.stats.inventory,
                     mid=self.current_mid,
                 )
+
+                if self.ws_bridge:
+                    self.ws_bridge.push(
+                        json.dumps(
+                            {
+                                "type": "metrics",
+                                "pnl": mm.stats.total_pnl,
+                                "inventory": mm.stats.inventory,
+                                "mid": self.current_mid,
+                            }
+                        )
+                    )
 
     def _submit_orders(self, orders: list[AgentOrder]):
         """Submit orders to the engine via TCP and update book snapshot."""
@@ -338,7 +392,7 @@ class Simulator:
 
         for order in orders:
             try:
-                self.tcp_client.send_order(
+                self.tcp_client.send_new_order(
                     order_id=order.order_id,
                     side=order.side,
                     order_type=order.order_type,
@@ -356,8 +410,8 @@ class Simulator:
 
         # Read back fills and book updates.
         try:
-            messages = self.tcp_client.receive_messages()
-            for msg in messages:
+            messages = self.tcp_client.poll()
+            for msg_type, msg in messages:
                 if isinstance(msg, BookUpdateMsg):
                     self.last_book_update = msg
                 elif hasattr(msg, "maker_id"):
@@ -389,6 +443,28 @@ class Simulator:
                             taker_fee=getattr(msg, "taker_fee", 0.0),
                         )
                     )
+
+            if self.ws_bridge and self.last_book_update:
+                book_msg = {
+                    "type": "book",
+                    "timestamp": self.current_time,
+                    "bids": [
+                        [p, q]
+                        for p, q in zip(
+                            self.last_book_update.bid_prices,
+                            self.last_book_update.bid_quantities,
+                        )
+                    ],
+                    "asks": [
+                        [p, q]
+                        for p, q in zip(
+                            self.last_book_update.ask_prices,
+                            self.last_book_update.ask_quantities,
+                        )
+                    ],
+                }
+                self.ws_bridge.push(json.dumps(book_msg))
+
         except Exception as e:
             log.warning(f"Failed to receive messages: {e}")
 
@@ -452,6 +528,9 @@ class Simulator:
         events_processed = 0
 
         while self.event_queue and self.running:
+            if self.ws_bridge:
+                self._process_incoming_ws_messages()
+
             event = self.event_queue.pop()
             self.current_time = event.timestamp
             self._process_event(event)
@@ -480,8 +559,8 @@ class Simulator:
         for agent_id, agent in self.agents.items():
             s = agent.stats
             log.info(
-                f"  {agent_id:12s} | PnL: {s.pnl:8.0f} | Inv: {s.inventory:5d} "
-                f"| Fills: {s.total_fills:4d} | Orders: {s.total_orders:4d}"
+                f"  {agent_id:12s} | PnL: {s.total_pnl:8.0f} | Inv: {s.inventory:5d} "
+                f"| Fills: {s.total_fills:4d} | Orders: {s.total_orders_sent:4d}"
             )
 
         # Cleanup.

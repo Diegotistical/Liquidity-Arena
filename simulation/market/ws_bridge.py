@@ -8,6 +8,7 @@ Also serves the frontend/ directory as static files.
 
 import asyncio
 import http.server
+import queue
 import socketserver
 import threading
 from pathlib import Path
@@ -29,6 +30,7 @@ class WebSocketBridge:
         self.frontend_dir = Path(frontend_dir).resolve()
         self._clients: set = set()
         self._message_queue: asyncio.Queue = asyncio.Queue()
+        self._incoming_queue: queue.Queue = queue.Queue()
         self._loop: asyncio.AbstractEventLoop = None
         self._ws_thread: threading.Thread = None
         self._http_thread: threading.Thread = None
@@ -50,6 +52,16 @@ class WebSocketBridge:
         """Push data to all connected WebSocket clients (thread-safe)."""
         if self._loop is not None:
             asyncio.run_coroutine_threadsafe(self._message_queue.put(data), self._loop)
+
+    def poll_incoming(self) -> list[str]:
+        """Poll all pending incoming messages from the browser."""
+        msgs = []
+        while True:
+            try:
+                msgs.append(self._incoming_queue.get_nowait())
+            except queue.Empty:
+                break
+        return msgs
 
     def _run_http(self):
         """Run a simple HTTP server for the frontend."""
@@ -84,8 +96,8 @@ class WebSocketBridge:
         self._clients.add(websocket)
         print(f"[WS] Client connected (total: {len(self._clients)})")
         try:
-            async for _ in websocket:
-                pass  # Read-only: we don't expect messages from the browser
+            async for msg in websocket:
+                self._incoming_queue.put(msg)
         finally:
             self._clients.discard(websocket)
             print(f"[WS] Client disconnected (total: {len(self._clients)})")

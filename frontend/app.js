@@ -493,5 +493,12 @@ function addTradeToTape(price, qty, side) {
     spawnParticles(rect.left + 20, rect.top + 15, side === 'buy' ? '#10b981' : '#ef4444', 4);
 }
 
+// ── Interactive Scenarios ────────────────────────────────────────────
+window.sendScenario = function (name) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'scenario', name: name }));
+    }
+};
+
 // ── Initialize ───────────────────────────────────────────────────────
 connect();

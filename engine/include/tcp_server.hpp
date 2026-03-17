@@ -22,6 +22,8 @@ constexpr SocketType INVALID_SOCK = INVALID_SOCKET;
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <poll.h>
 using SocketType = int;
 constexpr SocketType INVALID_SOCK = -1;
 #endif
@@ -71,12 +73,16 @@ public:
 
 private:
   void accept_client();
-  void handle_client(std::size_t idx);
+  void handle_client_read(std::size_t idx);
+  void handle_client_write(std::size_t idx);
   void remove_client(std::size_t idx);
   void process_message(std::size_t client_idx, MsgType type, const uint8_t *payload, uint32_t len);
 
   /// Send a reject message to a specific client.
   void send_reject(std::size_t client_idx, OrderId id, RejectReason reason);
+
+  /// Process broadcast events and rejections from the matching engine.
+  void consume_engine_events();
 
   void log(const std::string& msg);
 
@@ -89,6 +95,7 @@ private:
     SocketType sock = INVALID_SOCK;
     std::vector<uint8_t> recv_buffer;
     std::size_t recv_offset = 0;
+    std::vector<uint8_t> send_buffer;
   };
 
   std::vector<ClientConn> clients_;
@@ -105,7 +112,7 @@ void TcpServer::broadcast(const MsgT& msg) {
   std::size_t total = serialize(msg, send_buffer_);
   for (auto& client : clients_) {
     if (client.sock != INVALID_SOCK) {
-      send(client.sock, reinterpret_cast<const char *>(send_buffer_), static_cast<int>(total), 0);
+      client.send_buffer.insert(client.send_buffer.end(), send_buffer_, send_buffer_ + total);
     }
   }
 }
