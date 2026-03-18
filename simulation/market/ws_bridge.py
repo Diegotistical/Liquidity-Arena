@@ -22,9 +22,7 @@ class WebSocketBridge:
     Also serves the frontend static files via a simple HTTP server.
     """
 
-    def __init__(
-        self, ws_port: int = 8765, http_port: int = 8080, frontend_dir: str = "frontend"
-    ):
+    def __init__(self, ws_port: int = 8765, http_port: int = 8080, frontend_dir: str = "frontend"):
         self.ws_port = ws_port
         self.http_port = http_port
         self.frontend_dir = Path(frontend_dir).resolve()

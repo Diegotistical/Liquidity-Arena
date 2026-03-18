@@ -35,18 +35,23 @@ from simulation.agents.latency_arb import LatencyArb
 from simulation.agents.market_maker import AvellanedaStoikovMM
 from simulation.agents.momentum_trader import MomentumTrader
 from simulation.agents.noise_trader import NoiseTrader
-from simulation.market.latency_model import (LatencyConfig, LatencyModel,
-                                             latency_arb_latency,
-                                             market_maker_latency,
-                                             retail_latency)
-from simulation.market.price_process import (GBMProcess, HawkesProcess,
-                                             OUProcess, RegimeSwitchingProcess)
+from simulation.market.latency_model import (
+    LatencyConfig,
+    LatencyModel,
+    latency_arb_latency,
+    market_maker_latency,
+    retail_latency,
+)
+from simulation.market.price_process import (
+    GBMProcess,
+    HawkesProcess,
+    OUProcess,
+    RegimeSwitchingProcess,
+)
 from simulation.market.tcp_client import BookUpdateMsg, TcpClient
 from simulation.metrics import FillRecord, MetricsEngine, QuoteRecord
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("simulator")
 
 
@@ -337,9 +342,7 @@ class Simulator:
 
             # Hawkes-driven additional order flow.
             if self.hawkes is not None:
-                n_extra = self.hawkes.step(
-                    dt=self.config["simulation"].get("dt", 0.001)
-                )
+                n_extra = self.hawkes.step(dt=self.config["simulation"].get("dt", 0.001))
                 # Extra events manifest as noise trader actions.
                 for _ in range(n_extra):
                     noise_id = "NOISE_0"
@@ -421,11 +424,7 @@ class Simulator:
 
                     # Record fill for metrics.
                     mid_after = (
-                        (
-                            self.last_book_update.best_bid
-                            + self.last_book_update.best_ask
-                        )
-                        // 2
+                        (self.last_book_update.best_bid + self.last_book_update.best_ask) // 2
                         if self.last_book_update
                         else self.current_mid
                     )
@@ -520,9 +519,7 @@ class Simulator:
 
         # Schedule all events.
         self._schedule_initial_events()
-        log.info(
-            f"Scheduled {len(self.event_queue)} events for {self.total_steps} steps"
-        )
+        log.info(f"Scheduled {len(self.event_queue)} events for {self.total_steps} steps")
 
         # Main event loop.
         self.running = True

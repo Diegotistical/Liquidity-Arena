@@ -60,7 +60,7 @@ function(arena_set_warnings target)
     elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_compile_options(${target} PRIVATE
             -Wall -Wextra -Wpedantic -Werror -O2
-            -Wno-array-bounds -Wno-dangling-reference)
+            -Wno-array-bounds -Wno-dangling-reference -Wno-stringop-overflow)
     endif()
 endfunction()
 

@@ -42,9 +42,7 @@ class NewOrderMsg:
     SIZE = struct.calcsize(FORMAT)
 
     def pack(self) -> bytes:
-        return struct.pack(
-            self.FORMAT, self.id, self.side, self.type, self.price, self.quantity
-        )
+        return struct.pack(self.FORMAT, self.id, self.side, self.type, self.price, self.quantity)
 
 
 @dataclass
@@ -148,9 +146,7 @@ class TcpClient:
     def set_book_update_callback(self, cb: Callable):
         self._on_book_update = cb
 
-    def send_new_order(
-        self, order_id: int, side: int, order_type: int, price: int, quantity: int
-    ):
+    def send_new_order(self, order_id: int, side: int, order_type: int, price: int, quantity: int):
         """Send a new order to the engine."""
         msg = NewOrderMsg(order_id, side, order_type, price, quantity)
         payload = msg.pack()
@@ -183,9 +179,7 @@ class TcpClient:
 
         # Process complete messages from buffer.
         while len(self._recv_buffer) >= HEADER_SIZE:
-            msg_type, payload_len = struct.unpack(
-                HEADER_FORMAT, self._recv_buffer[:HEADER_SIZE]
-            )
+            msg_type, payload_len = struct.unpack(HEADER_FORMAT, self._recv_buffer[:HEADER_SIZE])
 
             total_size = HEADER_SIZE + payload_len
             if len(self._recv_buffer) < total_size:

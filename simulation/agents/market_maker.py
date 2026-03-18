@@ -85,9 +85,7 @@ class AvellanedaStoikovMM(BaseAgent):
             self._mid_history = self._mid_history[-self._sigma_window :]
 
         # Compute variance of price changes (not log returns, since ticks).
-        changes = np.diff(
-            self._mid_history[-min(len(self._mid_history), self._sigma_window) :]
-        )
+        changes = np.diff(self._mid_history[-min(len(self._mid_history), self._sigma_window) :])
         if len(changes) > 1:
             self._sigma_sq = float(np.var(changes)) + 1e-6  # Floor to avoid zero
         return self._sigma_sq

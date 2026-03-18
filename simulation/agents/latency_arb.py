@@ -116,10 +116,7 @@ class LatencyArb(BaseAgent):
                 self.track_order(order)
 
         # Inventory flattening: if we have inventory, try to reduce it.
-        elif (
-            abs(self.stats.inventory) > self.max_position // 2
-            and self.rng.random() < 0.3
-        ):
+        elif abs(self.stats.inventory) > self.max_position // 2 and self.rng.random() < 0.3:
             if self.stats.inventory > 0:
                 qty = min(self.stats.inventory, self.max_qty)
                 order = AgentOrder(

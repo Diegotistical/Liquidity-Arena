@@ -68,9 +68,7 @@ class TestNoiseTrader:
         for step in range(100):
             orders = self.trader.on_book_update(self.update, step)
             all_orders.extend(orders)
-        assert (
-            len(all_orders) > 0
-        ), "Noise trader should produce some orders over 100 steps"
+        assert len(all_orders) > 0, "Noise trader should produce some orders over 100 steps"
 
     def test_order_valid_sides(self):
         """All orders should have valid side (0=BID or 1=ASK)."""

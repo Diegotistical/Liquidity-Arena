@@ -234,8 +234,8 @@ TEST_F(MatchingEngineTest, IcebergInvalidParams) {
 TEST_F(MatchingEngineTest, FeesAppliedOnFill) {
   // Set fees: 2 bps maker rebate, 3 bps taker fee.
   FeeSchedule fees;
-  fees.maker_rebate_bps = 2.0;
-  fees.taker_fee_bps = 3.0;
+  fees.maker_rebate_bps = 2;
+  fees.taker_fee_bps = 3;
   engine.set_fee_schedule(fees);
 
   engine.process_new_order(1, Side::ASK, OrderType::LIMIT, 10000, 100, 0);
@@ -250,8 +250,8 @@ TEST_F(MatchingEngineTest, FeesAppliedOnFill) {
 
 TEST_F(MatchingEngineTest, FeeScheduleAccumulates) {
   FeeSchedule fees;
-  fees.maker_rebate_bps = 2.0;
-  fees.taker_fee_bps = 3.0;
+  fees.maker_rebate_bps = 2;
+  fees.taker_fee_bps = 3;
   engine.set_fee_schedule(fees);
 
   engine.process_new_order(1, Side::ASK, OrderType::LIMIT, 10000, 100, 0);

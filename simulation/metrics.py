@@ -172,9 +172,7 @@ class MetricsEngine:
             if q.cancel_timestamp is not None:
                 lifetimes.append(q.cancel_timestamp - q.timestamp)
             elif q.was_filled:
-                lifetimes.append(
-                    q.cancel_timestamp - q.timestamp if q.cancel_timestamp else 0.0
-                )
+                lifetimes.append(q.cancel_timestamp - q.timestamp if q.cancel_timestamp else 0.0)
         return float(np.mean(lifetimes)) if lifetimes else 0.0
 
     def order_to_trade_ratio(self) -> float:
@@ -224,9 +222,7 @@ class MetricsEngine:
         # Inventory PnL from mark-to-market.
         inventory_pnl = 0.0
         if len(self._mid_history) >= 2 and len(self._inventory_history) >= 2:
-            for i in range(
-                1, min(len(self._mid_history), len(self._inventory_history))
-            ):
+            for i in range(1, min(len(self._mid_history), len(self._inventory_history))):
                 mid_change = self._mid_history[i] - self._mid_history[i - 1]
                 inventory_pnl += self._inventory_history[i - 1] * mid_change
 
