@@ -5,7 +5,7 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-green.svg)](https://www.python.org/)
 
-**A production-grade microstructure simulator with a sub-microsecond C++20 matching engine, event-driven multi-agent simulation, and real-time browser visualization.**
+**A  microstructure simulator with a sub-microsecond C++20 matching engine, event-driven multi-agent simulation, and real-time browser visualization.**
 
 <p align="center">
   <strong>Price-Time Priority FIFO · Iceberg Orders · Maker/Taker Fees · Hawkes Order Flow · Regime Switching · Latency Arbitrage · Avellaneda-Stoikov</strong>
