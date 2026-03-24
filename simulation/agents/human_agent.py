@@ -46,10 +46,7 @@ class HumanAgent(BaseAgent):
         if not self.last_book:
             return
 
-        if side == 0:  # BID
-            price = self.last_book.best_bid - offset
-        else:  # ASK
-            price = getattr(self.last_book, "best_ask") + offset
+        price = self.last_book.best_bid - offset if side == 0 else self.last_book.best_ask + offset
 
         if price <= 0:
             return
