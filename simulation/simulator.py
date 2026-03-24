@@ -35,19 +35,12 @@ from simulation.agents.latency_arb import LatencyArb
 from simulation.agents.market_maker import AvellanedaStoikovMM
 from simulation.agents.momentum_trader import MomentumTrader
 from simulation.agents.noise_trader import NoiseTrader
-from simulation.market.latency_model import (
-    LatencyConfig,
-    LatencyModel,
-    latency_arb_latency,
-    market_maker_latency,
-    retail_latency,
-)
-from simulation.market.price_process import (
-    GBMProcess,
-    HawkesProcess,
-    OUProcess,
-    RegimeSwitchingProcess,
-)
+from simulation.market.latency_model import (LatencyConfig, LatencyModel,
+                                             latency_arb_latency,
+                                             market_maker_latency,
+                                             retail_latency)
+from simulation.market.price_process import (GBMProcess, HawkesProcess,
+                                             OUProcess, RegimeSwitchingProcess)
 from simulation.market.tcp_client import BookUpdateMsg, TcpClient
 from simulation.metrics import FillRecord, MetricsEngine, QuoteRecord
 
@@ -294,7 +287,8 @@ class Simulator:
                         self.human.cancel_all_quotes()
 
                     # Force the simulator to process the human's orders
-                    from simulation.market.simulator_types import Event, EventType
+                    from simulation.market.simulator_types import (Event,
+                                                                   EventType)
 
                     self.event_queue.push(
                         Event(
