@@ -10,6 +10,7 @@
 #include "matching_engine.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 
 namespace arena {
@@ -18,10 +19,22 @@ void MatchingEngine::start() {
   if (engine_running_.exchange(true))
     return; // Already running
   engine_thread_ = std::thread([this]() {
+    constexpr int MAX_IDLE_SPINS = 100;
+    int idle_spins = 0;
     while (engine_running_.load(std::memory_order_relaxed)) {
       ClientCommand cmd;
       if (in_queue_.pop(cmd)) {
         process_client_command(cmd);
+        idle_spins = 0; // Reset backoff on work
+      } else {
+        // Adaptive backoff: yield first, then sleep to avoid burning CPU.
+        ++idle_spins;
+        if (idle_spins < MAX_IDLE_SPINS) {
+          std::this_thread::yield();
+        } else {
+          std::this_thread::sleep_for(std::chrono::microseconds(
+              std::min(idle_spins - MAX_IDLE_SPINS, 100)));
+        }
       }
     }
   });

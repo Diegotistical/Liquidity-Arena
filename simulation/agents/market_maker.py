@@ -99,6 +99,10 @@ class AvellanedaStoikovMM(BaseAgent):
         mid = (update.best_bid + update.best_ask) / 2.0
         self.update_unrealized_pnl(int(mid))
 
+        # ── Cancel-and-Replace: cancel ALL stale quotes first ────────
+        # This prevents order accumulation that would exhaust the pool.
+        self._pending_cancels = self.cancel_all()
+
         # ── Step 1: Estimate σ² ──────────────────────────────────────
         sigma_sq = self._estimate_sigma_sq(mid)
 

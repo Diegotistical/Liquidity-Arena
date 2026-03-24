@@ -53,6 +53,9 @@ Chart.defaults.color = '#6b7280';
 Chart.defaults.borderColor = 'rgba(99, 102, 241, 0.06)';
 Chart.defaults.font.family = "'JetBrains Mono', monospace";
 Chart.defaults.font.size = 10;
+// Disable all animations for maximum rendering performance under heavy load
+Chart.defaults.animation = false;
+Chart.defaults.transitions = { active: { animation: { duration: 0 } } };
 
 const CHART_TOOLTIP = {
     backgroundColor: 'rgba(13, 19, 33, 0.95)',
@@ -62,6 +65,7 @@ const CHART_TOOLTIP = {
     titleFont: { size: 10, family: "'JetBrains Mono', monospace" },
     bodyFont: { size: 10, family: "'JetBrains Mono', monospace" },
     cornerRadius: 6,
+    animation: false,
 };
 
 // ── Depth Chart ──────────────────────────────────────────────────────
@@ -93,7 +97,6 @@ const depthChart = new Chart($('depthChart').getContext('2d'), {
     options: {
         responsive: true,
         maintainAspectRatio: false,
-        animation: { duration: 120, easing: 'easeOutQuart' },
         plugins: {
             legend: { display: true, position: 'top', labels: { usePointStyle: true, pointStyle: 'rectRounded', padding: 14, font: { size: 10 } } },
             tooltip: CHART_TOOLTIP
@@ -213,9 +216,21 @@ function updateParticles() {
 }
 updateParticles();
 
-// ── WebSocket Connection ─────────────────────────────────────────────
+// ── WebSocket & Game Loop State ──────────────────────────────────────
 let ws = null;
 let reconnectAttempt = 0;
+
+let pendingState = null;
+let isDirty = false;
+let tradeCount = 0;
+
+// Caching to avoid layout thrashing
+let tradeTapeRect = null;
+function getTradeTapeRect() {
+    if (!tradeTapeRect) tradeTapeRect = $tradeTape.getBoundingClientRect();
+    return tradeTapeRect;
+}
+window.addEventListener('resize', () => { tradeTapeRect = null; });
 
 function connect() {
     ws = new WebSocket(WS_URL);
@@ -238,17 +253,28 @@ function connect() {
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
-            if (data.type === 'update') updateDashboard(data);
+            if (data.type === 'update') {
+                pendingState = data;
+                isDirty = true;
+            }
         } catch (e) { /* ignore parse errors */ }
     };
 }
 
-// ── Dashboard Update ─────────────────────────────────────────────────
+// ── Render Loop (Game Loop) ──────────────────────────────────────────
 let prevPnl = null;
 let prevSpread = null;
-let tradeCount = 0;
 let lastUpdateTime = performance.now();
 let updateCounter = 0;
+
+function renderLoop() {
+    requestAnimationFrame(renderLoop);
+
+    if (!isDirty || !pendingState) return;
+
+    applyStateToDOM(pendingState);
+    isDirty = false;
+}
 
 function formatPrice(ticks) { return (ticks * 0.01).toFixed(2); }
 
@@ -262,34 +288,42 @@ function colorValue(value) {
     return value > 0 ? 'var(--positive)' : value < 0 ? 'var(--negative)' : 'var(--text-primary)';
 }
 
-function updateDashboard(data) {
+function safeText(el, text) {
+    if (el.textContent !== text) el.textContent = text;
+}
+
+function applyStateToDOM(data) {
     const book = data.book;
     const mm = data.mm;
 
     // ── Stats Bar ────────────────────────────────────────────────
-    $bestBid.textContent = `$${formatPrice(book.best_bid)}`;
-    $bestAsk.textContent = `$${formatPrice(book.best_ask)}`;
-    $spread.textContent = `${mm.spread} ticks`;
-    flashElement($spread);
+    safeText($bestBid, `$${formatPrice(book.best_bid)}`);
+    safeText($bestAsk, `$${formatPrice(book.best_ask)}`);
+    safeText($spread, `${mm.spread} ticks`);
+    
+    // Only flash if changed
+    if (prevSpread !== mm.spread) {
+        flashElement($spread);
+        prevSpread = mm.spread;
+    }
 
-    $mmPnl.textContent = `$${mm.pnl.toFixed(2)}`;
+    safeText($mmPnl, `$${mm.pnl.toFixed(2)}`);
     $mmPnl.style.color = colorValue(mm.pnl);
-    flashElement($mmPnl);
 
-    $pnlBadge.textContent = mm.pnl >= 0 ? `+$${mm.pnl.toFixed(0)}` : `-$${Math.abs(mm.pnl).toFixed(0)}`;
+    safeText($pnlBadge, mm.pnl >= 0 ? `+$${mm.pnl.toFixed(0)}` : `-$${Math.abs(mm.pnl).toFixed(0)}`);
     $pnlBadge.style.color = colorValue(mm.pnl);
 
-    $mmInventory.textContent = mm.inventory > 0 ? `+${mm.inventory}` : mm.inventory;
+    safeText($mmInventory, mm.inventory > 0 ? `+${mm.inventory}` : String(mm.inventory));
     $mmInventory.style.color = mm.inventory > 0 ? 'var(--bid-color)' : mm.inventory < 0 ? 'var(--ask-color)' : 'var(--text-primary)';
 
-    $mmFills.textContent = mm.fills.toLocaleString();
+    safeText($mmFills, mm.fills.toLocaleString());
 
     // Events/sec calculation
     updateCounter++;
     const now = performance.now();
     if (now - lastUpdateTime > 1000) {
         const rate = updateCounter / ((now - lastUpdateTime) / 1000);
-        $eventRate.textContent = `${rate.toFixed(0)}`;
+        safeText($eventRate, `${rate.toFixed(0)}`);
         updateCounter = 0;
         lastUpdateTime = now;
     }
@@ -298,13 +332,16 @@ function updateDashboard(data) {
     if (data.regime) {
         const regimeMap = { 0: 'CALM', 1: 'VOLATILE', 2: 'NEWS' };
         const regimeClass = { 0: '', 1: 'volatile', 2: 'news' };
-        $regimeIndicator.className = `regime-indicator ${regimeClass[data.regime] || ''}`;
-        $regimeLabel.textContent = regimeMap[data.regime] || 'CALM';
+        const regimeLabelCurrent = regimeMap[data.regime] || 'CALM';
+        if ($regimeLabel.textContent !== regimeLabelCurrent) {
+            $regimeIndicator.className = `regime-indicator ${regimeClass[data.regime] || ''}`;
+            safeText($regimeLabel, regimeLabelCurrent);
+        }
     }
 
     // ── Engine Latency ───────────────────────────────────────────
     if (data.latency_us) {
-        $engineLatency.textContent = `${data.latency_us.toFixed(0)}µs`;
+        safeText($engineLatency, `${data.latency_us.toFixed(0)}µs`);
     }
 
     // ── Inventory Gauge ──────────────────────────────────────────
@@ -312,9 +349,9 @@ function updateDashboard(data) {
 
     // ── A-S Model Params ─────────────────────────────────────────
     if (data.mm_model) {
-        $reservationPrice.textContent = `$${formatPrice(data.mm_model.reservation)}`;
-        $sigmaEstimate.textContent = data.mm_model.sigma_sq.toFixed(2);
-        $optimalSpread.textContent = `${data.mm_model.spread.toFixed(1)}`;
+        safeText($reservationPrice, `$${formatPrice(data.mm_model.reservation)}`);
+        safeText($sigmaEstimate, data.mm_model.sigma_sq.toFixed(2));
+        safeText($optimalSpread, `${data.mm_model.spread.toFixed(1)}`);
     }
 
     // ── Quantitative Metrics ─────────────────────────────────────
@@ -338,17 +375,34 @@ function updateDashboard(data) {
     // ── Agent Activity ───────────────────────────────────────────
     if (data.agents) {
         for (const [id, stats] of Object.entries(data.agents)) {
+            // Player UI
+            if (id === 'HUMAN') {
+                const playerPnl = $('playerPnlBadge');
+                if (playerPnl) {
+                    safeText(playerPnl, stats.pnl >= 0 ? `+$${stats.pnl.toFixed(0)}` : `-$${Math.abs(stats.pnl).toFixed(0)}`);
+                    playerPnl.style.color = colorValue(stats.pnl);
+                }
+                const playerInv = $('playerInv');
+                if (playerInv) {
+                    safeText(playerInv, stats.inventory > 0 ? `+${stats.inventory}` : String(stats.inventory));
+                    playerInv.style.color = stats.inventory > 0 ? 'var(--bid-color)' : stats.inventory < 0 ? 'var(--ask-color)' : 'var(--text-primary)';
+                }
+                const playerFills = $('playerFills');
+                if (playerFills) safeText(playerFills, String(stats.fills));
+                continue;
+            }
+
             const pnlEl = $(`agent${id}_pnl`);
             const invEl = $(`agent${id}_inv`) || $(`agent${id}_fills`);
             if (pnlEl) {
-                pnlEl.textContent = `$${stats.pnl.toFixed(0)}`;
+                safeText(pnlEl, `$${stats.pnl.toFixed(0)}`);
                 pnlEl.style.color = colorValue(stats.pnl);
             }
             if (invEl) {
                 if (stats.inventory !== undefined) {
-                    invEl.textContent = `inv: ${stats.inventory}`;
+                    safeText(invEl, `inv: ${stats.inventory}`);
                 } else {
-                    invEl.textContent = `fills: ${stats.fills}`;
+                    safeText(invEl, `fills: ${stats.fills}`);
                 }
             }
         }
@@ -377,13 +431,18 @@ function updateDashboard(data) {
     prevPnl = mm.pnl;
 
     // ── Trade Tape ───────────────────────────────────────────────
+    // ── Trade Tape ───────────────────────────────────────────────
     if (mm.fills > tradeCount && book.best_bid > 0) {
         const newFills = mm.fills - tradeCount;
-        for (let i = 0; i < Math.min(newFills, 3); i++) {
-            addTradeToTape(book.best_bid + Math.floor(Math.random() * mm.spread),
-                20 + Math.floor(Math.random() * 80),
-                Math.random() > 0.5 ? 'buy' : 'sell');
+        const tradesToSpawn = [];
+        for (let i = 0; i < Math.min(newFills, 5); i++) {
+            tradesToSpawn.push({
+                price: book.best_bid + Math.floor(Math.random() * mm.spread),
+                qty: 20 + Math.floor(Math.random() * 80),
+                side: Math.random() > 0.5 ? 'buy' : 'sell'
+            });
         }
+        addTradesBatch(tradesToSpawn);
         tradeCount = mm.fills;
     }
 }
@@ -468,37 +527,88 @@ function updateGauge(inventory) {
     }
 }
 
-function addTradeToTape(price, qty, side) {
+function addTradesBatch(trades) {
+    if (trades.length === 0) return;
+
     const empty = $tradeTape.querySelector('.tape-empty');
     if (empty) empty.remove();
 
-    const trade = document.createElement('div');
-    trade.className = `tape-trade ${side}`;
-    trade.innerHTML = `
-        <span class="tape-price ${side === 'buy' ? 'bid-color' : 'ask-color'}">
-            $${formatPrice(price)}
-        </span>
-        <span class="tape-qty">${qty} × ${side.toUpperCase()}</span>
-        <span class="tape-time">${new Date().toLocaleTimeString()}</span>
-    `;
+    const fragment = document.createDocumentFragment();
+    const timeStr = new Date().toLocaleTimeString();
+    
+    // Spawn particles using cached container rect instead of calculating per-element
+    const rect = getTradeTapeRect();
+    const spawnX = rect.left + 20;
+    const spawnY = rect.top + 15;
 
-    $tradeTape.prepend(trade);
+    for (const t of trades) {
+        const trade = document.createElement('div');
+        trade.className = `tape-trade ${t.side}`;
+        trade.innerHTML = `
+            <span class="tape-price ${t.side === 'buy' ? 'bid-color' : 'ask-color'}">
+                $${formatPrice(t.price)}
+            </span>
+            <span class="tape-qty">${t.qty} × ${t.side.toUpperCase()}</span>
+            <span class="tape-time">${timeStr}</span>
+        `;
+        fragment.appendChild(trade);
+
+        // Particle burst
+        spawnParticles(spawnX, spawnY, t.side === 'buy' ? '#10b981' : '#ef4444', 4);
+    }
+
+    $tradeTape.prepend(fragment);
 
     while ($tradeTape.children.length > MAX_TAPE) {
         $tradeTape.removeChild($tradeTape.lastChild);
     }
-
-    // Particle burst for trades
-    const rect = trade.getBoundingClientRect();
-    spawnParticles(rect.left + 20, rect.top + 15, side === 'buy' ? '#10b981' : '#ef4444', 4);
 }
 
-// ── Interactive Scenarios ────────────────────────────────────────────
+// ── Interactive Scenarios & Trading ──────────────────────────────────
 window.sendScenario = function (name) {
     if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'scenario', name: name }));
     }
 };
 
+window.sendHumanAction = function(action) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        const qty = parseInt($('tradeQty').value) || 100;
+        const offset = parseInt($('tradeOffset').value) || 0;
+        ws.send(JSON.stringify({ type: 'human_action', action, qty, offset }));
+    }
+};
+
+// Hotkeys for trading
+window.addEventListener('keydown', (e) => {
+    // Ignore if typing in inputs
+    if (e.target.tagName === 'INPUT') return;
+    
+    switch(e.key) {
+        case 'ArrowUp': 
+            e.preventDefault();
+            window.sendHumanAction('market_buy'); 
+            break;
+        case 'ArrowDown': 
+            e.preventDefault();
+            window.sendHumanAction('market_sell'); 
+            break;
+        case 'ArrowLeft': 
+            e.preventDefault();
+            window.sendHumanAction('limit_buy'); 
+            break;
+        case 'ArrowRight': 
+            e.preventDefault();
+            window.sendHumanAction('limit_sell'); 
+            break;
+        case 'c':
+        case 'C':
+            e.preventDefault();
+            window.sendHumanAction('cancel_all');
+            break;
+    }
+});
+
 // ── Initialize ───────────────────────────────────────────────────────
 connect();
+requestAnimationFrame(renderLoop);

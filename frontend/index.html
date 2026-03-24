@@ -246,6 +246,29 @@
                 </div>
             </div>
 
+            <!-- Trade Station Panel -->
+            <div class="glass-card control-panel" id="tradeStationPanel">
+                <div class="chart-header">
+                    <h2>Trade Station <span class="header-subtext">(Player)</span></h2>
+                    <span class="chart-badge pnl-badge" id="playerPnlBadge">$0</span>
+                </div>
+                <div class="player-metrics-row">
+                    <div>Inv: <strong id="playerInv">0</strong></div>
+                    <div>Fills: <strong id="playerFills">0</strong></div>
+                </div>
+                <div class="trade-inputs-row">
+                    <input type="number" id="tradeQty" value="100" min="1" class="trade-input" placeholder="Qty">
+                    <input type="number" id="tradeOffset" value="5" min="0" class="trade-input" placeholder="Tk Offset">
+                </div>
+                <div class="trade-buttons-grid">
+                    <button class="trade-btn mkt-buy" onclick="sendHumanAction('market_buy')">MKT BUY (↑)</button>
+                    <button class="trade-btn mkt-sell" onclick="sendHumanAction('market_sell')">MKT SELL (↓)</button>
+                    <button class="trade-btn lmt-buy" onclick="sendHumanAction('limit_buy')">LMT BUY (←)</button>
+                    <button class="trade-btn lmt-sell" onclick="sendHumanAction('limit_sell')">LMT SELL (→)</button>
+                    <button class="trade-btn cancel-all" onclick="sendHumanAction('cancel_all')">CANCEL ALL QUOTES (C)</button>
+                </div>
+            </div>
+
             <!-- Trade Tape -->
             <div class="glass-card tape-panel" id="tapePanel">
                 <div class="chart-header">

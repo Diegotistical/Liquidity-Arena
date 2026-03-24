@@ -289,7 +289,8 @@ class HawkesProcess:
         """
         Advance time by dt and return the number of events in this interval.
 
-        Uses Ogata's thinning algorithm for exact simulation.
+        Uses discrete-step Poisson thinning (approximate, not exact Ogata's
+        inter-arrival time method). Sufficient for simulation purposes.
         """
         self._current_time += dt
         # Prune old events (negligible kernel contribution).

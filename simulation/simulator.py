@@ -248,6 +248,14 @@ class Simulator:
         self.agents["LAT_ARB"] = la
         self.agent_latencies["LAT_ARB"] = latency_arb_latency(seed=300)
 
+        # Human Player
+        from simulation.agents.human_agent import HumanAgent
+
+        self.human = HumanAgent(agent_id="HUMAN")
+        self.agents["HUMAN"] = self.human
+        # Zero simulated latency — human reflexes + network latency are already baked in
+        self.agent_latencies["HUMAN"] = lambda: 0
+
     def set_ws_bridge(self, bridge):
         """Set the WebSocket bridge for bidirectional frontend communication."""
         self.ws_bridge = bridge
@@ -261,7 +269,35 @@ class Simulator:
         for raw_msg in msgs:
             try:
                 data = json.loads(raw_msg)
-                if data.get("type") == "scenario":
+                msg_type = data.get("type")
+                
+                if msg_type == "human_action":
+                    action = data.get("action")
+                    qty = int(data.get("qty", 100))
+                    offset = int(data.get("offset", 0))
+
+                    if action == "market_buy":
+                        self.human.place_market_order(side=0, qty=qty)
+                    elif action == "market_sell":
+                        self.human.place_market_order(side=1, qty=qty)
+                    elif action == "limit_buy":
+                        self.human.place_limit_order(side=0, offset=offset, qty=qty)
+                    elif action == "limit_sell":
+                        self.human.place_limit_order(side=1, offset=offset, qty=qty)
+                    elif action == "cancel_all":
+                        self.human.cancel_all_quotes()
+                    
+                    # Force the simulator to process the human's orders
+                    from simulation.market.simulator_types import Event, EventType
+                    self.event_queue.push(
+                        Event(
+                            timestamp=self.current_time,
+                            event_type=EventType.AGENT_ACTION,
+                            agent_id="HUMAN",
+                        )
+                    )
+
+                elif msg_type == "scenario":
                     name = data.get("name")
                     log.info(f"Triggering interactive scenario: {name}")
 
@@ -364,6 +400,12 @@ class Simulator:
                 return
 
             orders = agent.on_book_update(self.last_book_update, self.step_count)
+
+            # Send cancels for stale quotes (cancel-and-replace pattern).
+            if hasattr(agent, "_pending_cancels") and agent._pending_cancels:
+                self._submit_cancels(agent._pending_cancels)
+                agent._pending_cancels = []
+
             self._submit_orders(orders)
 
         elif event.event_type == EventType.METRICS_SAMPLE:
@@ -387,6 +429,17 @@ class Simulator:
                             }
                         )
                     )
+
+    def _submit_cancels(self, cancel_ids: list[int]):
+        """Send cancel requests to the engine for stale quotes."""
+        if self.tcp_client is None:
+            return
+        for order_id in cancel_ids:
+            try:
+                self.tcp_client.send_cancel(order_id)
+                self.metrics.record_cancel(order_id, self.current_time)
+            except Exception as e:
+                log.warning(f"Failed to send cancel: {e}")
 
     def _submit_orders(self, orders: list[AgentOrder]):
         """Submit orders to the engine via TCP and update book snapshot."""
@@ -579,9 +632,35 @@ def main():
     parser.add_argument(
         "--config", default="simulation/config/default.yaml", help="Path to config YAML"
     )
+    parser.add_argument(
+        "--ws", action="store_true", help="Enable WebSocket bridge for browser dashboard"
+    )
+    parser.add_argument("--ws-port", type=int, default=8765, help="WebSocket port (default: 8765)")
+    parser.add_argument(
+        "--http-port", type=int, default=8080, help="HTTP static file port (default: 8080)"
+    )
     args = parser.parse_args()
 
     sim = Simulator(config_path=args.config)
+
+    # Wire up WebSocket bridge if requested.
+    if args.ws:
+        try:
+            from simulation.market.ws_bridge import WebSocketBridge
+
+            bridge = WebSocketBridge(
+                ws_port=args.ws_port,
+                http_port=args.http_port,
+            )
+            bridge.start()
+            sim.set_ws_bridge(bridge)
+            log.info(
+                f"WebSocket bridge enabled — dashboard at http://localhost:{args.http_port}"
+            )
+        except ImportError:
+            log.warning("websockets package not installed. Run: pip install websockets")
+        except Exception as e:
+            log.warning(f"Failed to start WebSocket bridge: {e}")
 
     # Graceful shutdown.
     def signal_handler(sig, frame):

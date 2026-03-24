@@ -33,16 +33,19 @@ class NewOrderMsg:
 
     id: int
     side: int  # 0=BID, 1=ASK
-    type: int  # 0=LIMIT, 1=MARKET
+    type: int  # 0=LIMIT, 1=MARKET, 2=ICEBERG
     price: int  # Integer ticks
     quantity: int
+    display_qty: int = 0  # For iceberg: visible portion. 0 = full visibility.
 
-    # Packed format: uint64 OrderId, uint8 Side, uint8 Type, int64 Price, int32 Qty
-    FORMAT = "<QBBqi"
+    # Packed format: uint64 OrderId, uint8 Side, uint8 Type, int64 Price, int32 Qty, int32 DisplayQty
+    FORMAT = "<QBBqii"
     SIZE = struct.calcsize(FORMAT)
 
     def pack(self) -> bytes:
-        return struct.pack(self.FORMAT, self.id, self.side, self.type, self.price, self.quantity)
+        return struct.pack(
+            self.FORMAT, self.id, self.side, self.type, self.price, self.quantity, self.display_qty
+        )
 
 
 @dataclass
@@ -146,9 +149,12 @@ class TcpClient:
     def set_book_update_callback(self, cb: Callable):
         self._on_book_update = cb
 
-    def send_new_order(self, order_id: int, side: int, order_type: int, price: int, quantity: int):
+    def send_new_order(
+        self, order_id: int, side: int, order_type: int, price: int, quantity: int,
+        display_qty: int = 0,
+    ):
         """Send a new order to the engine."""
-        msg = NewOrderMsg(order_id, side, order_type, price, quantity)
+        msg = NewOrderMsg(order_id, side, order_type, price, quantity, display_qty)
         payload = msg.pack()
         header = struct.pack(HEADER_FORMAT, MsgType.NEW_ORDER, len(payload))
         self.sock.sendall(header + payload)

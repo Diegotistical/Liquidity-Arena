@@ -37,9 +37,9 @@ WORKDIR /app
 COPY --from=builder /build/build/arena_engine /app/arena_engine
 COPY --from=builder /build/build/arena_bench /app/arena_bench
 
-# Install Python dependencies.
+# Install Python dependencies (production only, no dev deps).
 COPY pyproject.toml .
-RUN pip install --no-cache-dir -e ".[dev]"
+RUN pip install --no-cache-dir -e .
 
 # Copy simulation code.
 COPY simulation/ simulation/

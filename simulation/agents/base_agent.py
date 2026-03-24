@@ -44,17 +44,22 @@ class AgentStats:
 class BaseAgent(ABC):
     """Abstract trading agent."""
 
+    _agent_counter: int = 0  # Class-level counter for unique ID offsets
+
     def __init__(self, agent_id: str, tick_size: float = 0.01):
         self.agent_id = agent_id
         self.tick_size = tick_size
         self.stats = AgentStats()
-        self._next_order_id = 1
+        # Each agent gets a unique 1M ID space to prevent order ID collisions.
+        self._id_offset = BaseAgent._agent_counter * 1_000_000
+        BaseAgent._agent_counter += 1
+        self._next_order_id = self._id_offset + 1
         self._active_orders: dict[int, AgentOrder] = {}
         self._fill_prices: list[tuple[int, int]] = []  # (price, signed_qty)
         self._mid_price: int = 0
 
     def next_order_id(self) -> int:
-        """Generate a unique order ID for this agent."""
+        """Generate a globally unique order ID for this agent."""
         oid = self._next_order_id
         self._next_order_id += 1
         self.stats.total_orders_sent += 1
@@ -67,11 +72,18 @@ class BaseAgent(ABC):
         This is the main decision function — called every simulation step.
         """
 
-    def on_fill(self, fill: FillMsg, my_order_id: int):
-        """Handle a fill notification for one of our orders."""
-        order = self._active_orders.get(my_order_id)
-        if order is None:
-            return
+    def on_fill(self, fill: FillMsg):
+        """Handle a fill notification. Auto-matches to active orders by ID."""
+        # Find which of our active orders was involved in this fill.
+        my_order_id = None
+        for oid in self._active_orders:
+            if oid == fill.maker_id or oid == fill.taker_id:
+                my_order_id = oid
+                break
+        if my_order_id is None:
+            return  # Not our fill
+
+        order = self._active_orders[my_order_id]
 
         qty = fill.quantity
         if order.side == 1:  # ASK — we sold
@@ -81,9 +93,8 @@ class BaseAgent(ABC):
         self.stats.total_fills += 1
         self.stats.total_volume += abs(fill.quantity)
 
-        # Track realized PnL (FIFO-style cash flow)
+        # Track realized PnL (FIFO-style cash flow).
         # Selling: +price*qty, Buying: -price*qty.
-        # Negative qty for buys, positive for sells.
         cash_flow = -fill.price * qty
         self.stats.realized_pnl += cash_flow * self.tick_size
 

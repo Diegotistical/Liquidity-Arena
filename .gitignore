@@ -2,6 +2,9 @@
 build/
 out/
 cmake-build-*/
+compile_commands.json
+build_error*.txt
+bench_results*.txt
 
 # IDE
 .vscode/

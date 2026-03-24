@@ -39,18 +39,10 @@ class MockBookUpdate:
             self.ask_quantities = [100, 200, 150, 300, 100]
 
 
-# Monkey-patch the import so agents use our mock
-import sys  # noqa: E402
-from unittest.mock import MagicMock  # noqa: E402
-
-mock_tcp = MagicMock()
-mock_tcp.BookUpdateMsg = MockBookUpdate
-sys.modules["simulation.market.tcp_client"] = mock_tcp
-
-from simulation.agents.informed_trader import InformedTrader  # noqa: E402
-from simulation.agents.latency_arb import LatencyArb  # noqa: E402
-from simulation.agents.momentum_trader import MomentumTrader  # noqa: E402
-from simulation.agents.noise_trader import NoiseTrader  # noqa: E402
+from simulation.agents.informed_trader import InformedTrader
+from simulation.agents.latency_arb import LatencyArb
+from simulation.agents.momentum_trader import MomentumTrader
+from simulation.agents.noise_trader import NoiseTrader
 
 # ═══════════════════════════════════════════════════════════════════════
 # Noise Trader Tests

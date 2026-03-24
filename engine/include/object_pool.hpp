@@ -100,7 +100,7 @@ private:
   /// Each slot in the pool is a union: either a live T object, or a free-list
   /// node. The free-list node only stores a "next" pointer.
   union FreeNode {
-    std::aligned_storage_t<sizeof(T), alignof(T)> storage;
+    alignas(T) std::byte storage[sizeof(T)];
     FreeNode *next_free;
   };
 

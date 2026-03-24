@@ -1006,3 +1006,129 @@ main {
         grid-template-columns: 1fr 1fr;
     }
 }
+    
+/* ── Trade Station Panel ── */
+.header-subtext {
+    font-size: 0.7em;
+    opacity: 0.7;
+    margin-left: 6px;
+    font-weight: 400;
+}
+
+.player-metrics-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.player-metrics-row strong {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 13px;
+    margin-left: 4px;
+}
+
+.trade-inputs-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.trade-input {
+    width: 50%;
+    background: rgba(30, 30, 40, 0.6);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.trade-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
+.trade-buttons-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.trade-btn {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-align: center;
+}
+
+.trade-btn:active {
+    transform: scale(0.96);
+}
+
+.trade-btn.mkt-buy {
+    background: var(--bid-dim);
+    border: 1px solid var(--bid-color);
+    color: var(--bid-color);
+}
+
+.trade-btn.mkt-buy:hover {
+    background: var(--bid-color);
+    color: #fff;
+    box-shadow: 0 0 12px var(--bid-glow);
+}
+
+.trade-btn.mkt-sell {
+    background: var(--ask-dim);
+    border: 1px solid var(--ask-color);
+    color: var(--ask-color);
+}
+
+.trade-btn.mkt-sell:hover {
+    background: var(--ask-color);
+    color: #fff;
+    box-shadow: 0 0 12px var(--ask-glow);
+}
+
+.trade-btn.lmt-buy {
+    background: transparent;
+    border: 1px dashed var(--bid-color);
+    color: var(--bid-color);
+}
+
+.trade-btn.lmt-buy:hover {
+    background: var(--bid-dim);
+}
+
+.trade-btn.lmt-sell {
+    background: transparent;
+    border: 1px dashed var(--ask-color);
+    color: var(--ask-color);
+}
+
+.trade-btn.lmt-sell:hover {
+    background: var(--ask-dim);
+}
+
+.trade-btn.cancel-all {
+    grid-column: span 2;
+    background: var(--warning-dim);
+    border: 1px solid var(--warning);
+    color: var(--warning);
+}
+
+.trade-btn.cancel-all:hover {
+    background: var(--warning);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+}
