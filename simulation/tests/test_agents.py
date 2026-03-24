@@ -11,6 +11,11 @@ Tests verify:
 
 from dataclasses import dataclass
 
+from simulation.agents.informed_trader import InformedTrader
+from simulation.agents.latency_arb import LatencyArb
+from simulation.agents.momentum_trader import MomentumTrader
+from simulation.agents.noise_trader import NoiseTrader
+
 # ── Mock BookUpdateMsg ────────────────────────────────────────────────
 # We mock the TCP client's message type so tests don't need a real engine.
 
@@ -37,13 +42,6 @@ class MockBookUpdate:
             self.ask_prices = [10005, 10010, 10015, 10020, 10025]
         if self.ask_quantities is None:
             self.ask_quantities = [100, 200, 150, 300, 100]
-
-
-from simulation.agents.informed_trader import InformedTrader
-from simulation.agents.latency_arb import LatencyArb
-from simulation.agents.momentum_trader import MomentumTrader
-from simulation.agents.noise_trader import NoiseTrader
-
 # ═══════════════════════════════════════════════════════════════════════
 # Noise Trader Tests
 # ═══════════════════════════════════════════════════════════════════════
@@ -60,7 +58,9 @@ class TestNoiseTrader:
         for step in range(100):
             orders = self.trader.on_book_update(self.update, step)
             all_orders.extend(orders)
-        assert len(all_orders) > 0, "Noise trader should produce some orders over 100 steps"
+        assert (
+            len(all_orders) > 0
+        ), "Noise trader should produce some orders over 100 steps"
 
     def test_order_valid_sides(self):
         """All orders should have valid side (0=BID or 1=ASK)."""

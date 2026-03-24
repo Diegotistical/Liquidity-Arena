@@ -5,9 +5,7 @@ Tests the full pipeline: agents → TCP client → C++ engine → fills → metr
 Runs without the C++ engine by testing the Python-side logic end-to-end.
 """
 
-import pytest
-
-from simulation.agents.base_agent import AgentOrder, BaseAgent
+from simulation.agents.base_agent import AgentOrder
 from simulation.agents.informed_trader import InformedTrader
 from simulation.agents.latency_arb import LatencyArb
 from simulation.agents.market_maker import AvellanedaStoikovMM
@@ -32,17 +30,16 @@ class TestOrderIdUniqueness:
         for agent in [mm, noise, informed, momentum, lat_arb]:
             for _ in range(100):
                 oid = agent.next_order_id()
-                assert oid not in all_ids, f"Duplicate ID {oid} from agent {agent.agent_id}"
+                assert (
+                    oid not in all_ids
+                ), f"Duplicate ID {oid} from agent {agent.agent_id}"
                 all_ids.add(oid)
 
         assert len(all_ids) == 500  # 5 agents × 100 IDs each
 
     def test_id_offset_spacing(self):
         """Order IDs should be spaced by at least 1M per agent."""
-        agents = [
-            NoiseTrader(agent_id=f"A{i}", seed=i)
-            for i in range(5)
-        ]
+        agents = [NoiseTrader(agent_id=f"A{i}", seed=i) for i in range(5)]
         first_ids = [a.next_order_id() for a in agents]
         for i in range(1, len(first_ids)):
             assert first_ids[i] - first_ids[i - 1] >= 1_000_000
@@ -169,13 +166,14 @@ class TestTcpProtocol:
 
         # Verify the display_qty is in the packed bytes.
         import struct
+
         unpacked = struct.unpack(NewOrderMsg.FORMAT, packed)
         assert unpacked[0] == 12345  # id
-        assert unpacked[1] == 0     # side
-        assert unpacked[2] == 2     # type (ICEBERG)
-        assert unpacked[3] == 10000 # price
+        assert unpacked[1] == 0  # side
+        assert unpacked[2] == 2  # type (ICEBERG)
+        assert unpacked[3] == 10000  # price
         assert unpacked[4] == 1000  # quantity
-        assert unpacked[5] == 100   # display_qty
+        assert unpacked[5] == 100  # display_qty
 
     def test_new_order_default_display_qty(self):
         """Regular limit orders should have display_qty=0 by default."""
@@ -184,6 +182,7 @@ class TestTcpProtocol:
 
         packed = msg.pack()
         import struct
+
         unpacked = struct.unpack(NewOrderMsg.FORMAT, packed)
         assert unpacked[5] == 0  # display_qty defaults to 0
 
@@ -219,7 +218,9 @@ class TestMetricsIntegration:
 
         # Record state snapshots.
         for i in range(20):
-            metrics.record_state(step=i, pnl=float(i * 10), inventory=i % 5, mid=10000 + i)
+            metrics.record_state(
+                step=i, pnl=float(i * 10), inventory=i % 5, mid=10000 + i
+            )
 
         report = metrics.compute_report()
         assert report["total_fills"] == 5

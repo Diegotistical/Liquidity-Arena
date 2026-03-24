@@ -51,7 +51,9 @@ from simulation.market.price_process import (
 from simulation.market.tcp_client import BookUpdateMsg, TcpClient
 from simulation.metrics import FillRecord, MetricsEngine, QuoteRecord
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 log = logging.getLogger("simulator")
 
 
@@ -251,10 +253,14 @@ class Simulator:
         # Human Player
         from simulation.agents.human_agent import HumanAgent
 
+        class ZeroLatency:
+            def sample_seconds(self) -> float:
+                return 0.0
+
         self.human = HumanAgent(agent_id="HUMAN")
         self.agents["HUMAN"] = self.human
         # Zero simulated latency — human reflexes + network latency are already baked in
-        self.agent_latencies["HUMAN"] = lambda: 0
+        self.agent_latencies["HUMAN"] = ZeroLatency()
 
     def set_ws_bridge(self, bridge):
         """Set the WebSocket bridge for bidirectional frontend communication."""
@@ -270,7 +276,7 @@ class Simulator:
             try:
                 data = json.loads(raw_msg)
                 msg_type = data.get("type")
-                
+
                 if msg_type == "human_action":
                     action = data.get("action")
                     qty = int(data.get("qty", 100))
@@ -286,9 +292,10 @@ class Simulator:
                         self.human.place_limit_order(side=1, offset=offset, qty=qty)
                     elif action == "cancel_all":
                         self.human.cancel_all_quotes()
-                    
+
                     # Force the simulator to process the human's orders
                     from simulation.market.simulator_types import Event, EventType
+
                     self.event_queue.push(
                         Event(
                             timestamp=self.current_time,
@@ -378,7 +385,9 @@ class Simulator:
 
             # Hawkes-driven additional order flow.
             if self.hawkes is not None:
-                n_extra = self.hawkes.step(dt=self.config["simulation"].get("dt", 0.001))
+                n_extra = self.hawkes.step(
+                    dt=self.config["simulation"].get("dt", 0.001)
+                )
                 # Extra events manifest as noise trader actions.
                 for _ in range(n_extra):
                     noise_id = "NOISE_0"
@@ -477,7 +486,11 @@ class Simulator:
 
                     # Record fill for metrics.
                     mid_after = (
-                        (self.last_book_update.best_bid + self.last_book_update.best_ask) // 2
+                        (
+                            self.last_book_update.best_bid
+                            + self.last_book_update.best_ask
+                        )
+                        // 2
                         if self.last_book_update
                         else self.current_mid
                     )
@@ -572,7 +585,9 @@ class Simulator:
 
         # Schedule all events.
         self._schedule_initial_events()
-        log.info(f"Scheduled {len(self.event_queue)} events for {self.total_steps} steps")
+        log.info(
+            f"Scheduled {len(self.event_queue)} events for {self.total_steps} steps"
+        )
 
         # Main event loop.
         self.running = True
@@ -633,11 +648,18 @@ def main():
         "--config", default="simulation/config/default.yaml", help="Path to config YAML"
     )
     parser.add_argument(
-        "--ws", action="store_true", help="Enable WebSocket bridge for browser dashboard"
+        "--ws",
+        action="store_true",
+        help="Enable WebSocket bridge for browser dashboard",
     )
-    parser.add_argument("--ws-port", type=int, default=8765, help="WebSocket port (default: 8765)")
     parser.add_argument(
-        "--http-port", type=int, default=8080, help="HTTP static file port (default: 8080)"
+        "--ws-port", type=int, default=8765, help="WebSocket port (default: 8765)"
+    )
+    parser.add_argument(
+        "--http-port",
+        type=int,
+        default=8080,
+        help="HTTP static file port (default: 8080)",
     )
     args = parser.parse_args()
 
