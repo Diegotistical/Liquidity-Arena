@@ -196,9 +196,7 @@ class TcpClient:
 
         # Process complete messages from buffer.
         while len(self._recv_buffer) >= HEADER_SIZE:
-            msg_type, payload_len = struct.unpack(
-                HEADER_FORMAT, self._recv_buffer[:HEADER_SIZE]
-            )
+            msg_type, payload_len = struct.unpack(HEADER_FORMAT, self._recv_buffer[:HEADER_SIZE])
 
             total_size = HEADER_SIZE + payload_len
             if len(self._recv_buffer) < total_size:

@@ -30,9 +30,7 @@ class TestOrderIdUniqueness:
         for agent in [mm, noise, informed, momentum, lat_arb]:
             for _ in range(100):
                 oid = agent.next_order_id()
-                assert (
-                    oid not in all_ids
-                ), f"Duplicate ID {oid} from agent {agent.agent_id}"
+                assert oid not in all_ids, f"Duplicate ID {oid} from agent {agent.agent_id}"
                 all_ids.add(oid)
 
         assert len(all_ids) == 500  # 5 agents × 100 IDs each
@@ -218,9 +216,7 @@ class TestMetricsIntegration:
 
         # Record state snapshots.
         for i in range(20):
-            metrics.record_state(
-                step=i, pnl=float(i * 10), inventory=i % 5, mid=10000 + i
-            )
+            metrics.record_state(step=i, pnl=float(i * 10), inventory=i % 5, mid=10000 + i)
 
         report = metrics.compute_report()
         assert report["total_fills"] == 5

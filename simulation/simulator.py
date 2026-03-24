@@ -35,18 +35,23 @@ from simulation.agents.latency_arb import LatencyArb
 from simulation.agents.market_maker import AvellanedaStoikovMM
 from simulation.agents.momentum_trader import MomentumTrader
 from simulation.agents.noise_trader import NoiseTrader
-from simulation.market.latency_model import (LatencyConfig, LatencyModel,
-                                             latency_arb_latency,
-                                             market_maker_latency,
-                                             retail_latency)
-from simulation.market.price_process import (GBMProcess, HawkesProcess,
-                                             OUProcess, RegimeSwitchingProcess)
+from simulation.market.latency_model import (
+    LatencyConfig,
+    LatencyModel,
+    latency_arb_latency,
+    market_maker_latency,
+    retail_latency,
+)
+from simulation.market.price_process import (
+    GBMProcess,
+    HawkesProcess,
+    OUProcess,
+    RegimeSwitchingProcess,
+)
 from simulation.market.tcp_client import BookUpdateMsg, TcpClient
 from simulation.metrics import FillRecord, MetricsEngine, QuoteRecord
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("simulator")
 
 
@@ -287,8 +292,7 @@ class Simulator:
                         self.human.cancel_all_quotes()
 
                     # Force the simulator to process the human's orders
-                    from simulation.market.simulator_types import (Event,
-                                                                   EventType)
+                    from simulation.market.simulator_types import Event, EventType
 
                     self.event_queue.push(
                         Event(
@@ -379,9 +383,7 @@ class Simulator:
 
             # Hawkes-driven additional order flow.
             if self.hawkes is not None:
-                n_extra = self.hawkes.step(
-                    dt=self.config["simulation"].get("dt", 0.001)
-                )
+                n_extra = self.hawkes.step(dt=self.config["simulation"].get("dt", 0.001))
                 # Extra events manifest as noise trader actions.
                 for _ in range(n_extra):
                     noise_id = "NOISE_0"
@@ -480,11 +482,7 @@ class Simulator:
 
                     # Record fill for metrics.
                     mid_after = (
-                        (
-                            self.last_book_update.best_bid
-                            + self.last_book_update.best_ask
-                        )
-                        // 2
+                        (self.last_book_update.best_bid + self.last_book_update.best_ask) // 2
                         if self.last_book_update
                         else self.current_mid
                     )
@@ -579,9 +577,7 @@ class Simulator:
 
         # Schedule all events.
         self._schedule_initial_events()
-        log.info(
-            f"Scheduled {len(self.event_queue)} events for {self.total_steps} steps"
-        )
+        log.info(f"Scheduled {len(self.event_queue)} events for {self.total_steps} steps")
 
         # Main event loop.
         self.running = True
@@ -646,9 +642,7 @@ def main():
         action="store_true",
         help="Enable WebSocket bridge for browser dashboard",
     )
-    parser.add_argument(
-        "--ws-port", type=int, default=8765, help="WebSocket port (default: 8765)"
-    )
+    parser.add_argument("--ws-port", type=int, default=8765, help="WebSocket port (default: 8765)")
     parser.add_argument(
         "--http-port",
         type=int,
@@ -670,9 +664,7 @@ def main():
             )
             bridge.start()
             sim.set_ws_bridge(bridge)
-            log.info(
-                f"WebSocket bridge enabled — dashboard at http://localhost:{args.http_port}"
-            )
+            log.info(f"WebSocket bridge enabled — dashboard at http://localhost:{args.http_port}")
         except ImportError:
             log.warning("websockets package not installed. Run: pip install websockets")
         except Exception as e:

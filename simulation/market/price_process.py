@@ -219,9 +219,7 @@ class RegimeSwitchingProcess(PriceProcess):
         self._maybe_switch_regime()
         sigma = self.regimes[self.current_regime].sigma
         dw = self.rng.normal(0, np.sqrt(self.dt))
-        self.current_price += (
-            self.kappa * (self.theta - self.current_price) * self.dt + sigma * dw
-        )
+        self.current_price += self.kappa * (self.theta - self.current_price) * self.dt + sigma * dw
         return int(round(self.current_price))
 
     def generate(self, num_steps: int) -> np.ndarray:
@@ -264,12 +262,8 @@ class HawkesProcess:
           # n_events = number of order arrivals this step
     """
 
-    def __init__(
-        self, mu: float = 1.0, alpha: float = 0.6, beta: float = 1.5, seed: int = 42
-    ):
-        assert (
-            alpha / beta < 1.0
-        ), f"α/β must be < 1 for stationarity (got {alpha / beta:.2f})"
+    def __init__(self, mu: float = 1.0, alpha: float = 0.6, beta: float = 1.5, seed: int = 42):
+        assert alpha / beta < 1.0, f"α/β must be < 1 for stationarity (got {alpha / beta:.2f})"
         self.mu = mu
         self.alpha = alpha
         self.beta = beta
